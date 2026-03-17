@@ -48,119 +48,156 @@ def get_system_resolver():
     resolver.lifetime = 8
     return resolver
 
-def resolve_host(hostname):
-    # Best-effort resolution.
-    timeout_count = 0
-    for dns_ip in ['8.8.8.8', '1.1.1.1', '9.9.9.9']:
+async def resolve_host(hostname):
+    loop = asyncio.get_running_loop()
+    
+    def _resolve():
+        timeout_count = 0
+        for dns_ip in ['8.8.8.8', '1.1.1.1', '9.9.9.9']:
+            try:
+                resolver = dns.resolver.Resolver(configure=False)
+                resolver.nameservers = [dns_ip]
+                resolver.timeout = 2
+                resolver.lifetime = 3
+                return str(resolver.resolve(hostname, 'A')[0])
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+                continue
+            except dns.resolver.Timeout:
+                timeout_count += 1
+                if timeout_count >= 2: break
+            except Exception:
+                continue
         try:
-            resolver = dns.resolver.Resolver(configure=False)
-            resolver.nameservers = [dns_ip]
-            resolver.timeout = 3
-            resolver.lifetime = 5
-            answers = resolver.resolve(hostname, 'A')
-            return str(answers[0])
-        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-            continue
-        except dns.resolver.Timeout:
-            timeout_count += 1
-            if timeout_count >= 2:
-                break
+            return str(get_system_resolver().resolve(hostname, 'A')[0])
         except Exception:
-            continue
+            return hostname
+            
     try:
-        answers = get_system_resolver().resolve(hostname, 'A')
-        return str(answers[0])
-    except Exception:
+        return await asyncio.wait_for(loop.run_in_executor(None, _resolve), timeout=5.0)
+    except asyncio.TimeoutError:
         return hostname
 
-def get_mx(domain):
-    # Try configured public resolvers, then fall back to system resolver.
-    timeout_count = 0
-    for nameserver in DNS_SERVERS:
+async def get_mx(domain):
+    loop = asyncio.get_running_loop()
+    
+    def _get():
+        timeout_count = 0
+        for nameserver in DNS_SERVERS:
+            try:
+                resolver = get_resolver(nameserver)
+                resolver.timeout = 2
+                resolver.lifetime = 3
+                answers = resolver.resolve(domain, 'MX')
+                mx = sorted([(r.preference, str(r.exchange).rstrip('.')) for r in answers])
+                return [h for _, h in mx]
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+                return [] # Short-circuit if no MX
+            except dns.resolver.Timeout:
+                timeout_count += 1
+                if timeout_count >= 2: break
+            except Exception:
+                continue
         try:
-            resolver = get_resolver(nameserver)
+            resolver = get_system_resolver()
+            resolver.timeout = 2
+            resolver.lifetime = 3
             answers = resolver.resolve(domain, 'MX')
             mx = sorted([(r.preference, str(r.exchange).rstrip('.')) for r in answers])
             return [h for _, h in mx]
         except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-            continue
-        except dns.resolver.Timeout:
-            timeout_count += 1
-            if timeout_count >= 2:
-                break
+            return []
         except Exception:
-            continue
+            return None
+            
     try:
-        answers = get_system_resolver().resolve(domain, 'MX')
-        mx = sorted([(r.preference, str(r.exchange).rstrip('.')) for r in answers])
-        return [h for _, h in mx]
-    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-        return []
-    except Exception:
+        return await asyncio.wait_for(loop.run_in_executor(None, _get), timeout=6.0)
+    except asyncio.TimeoutError:
         return None
 
-def get_a_record(domain):
-    timeout_count = 0
-    for nameserver in DNS_SERVERS:
+async def get_a_record(domain):
+    loop = asyncio.get_running_loop()
+    def _get():
+        timeout_count = 0
+        for nameserver in DNS_SERVERS:
+            try:
+                resolver = get_resolver(nameserver)
+                resolver.timeout = 2
+                resolver.lifetime = 3
+                return [str(r) for r in resolver.resolve(domain, 'A')]
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+                return []
+            except dns.resolver.Timeout:
+                timeout_count += 1
+                if timeout_count >= 2: break
+            except Exception:
+                continue
         try:
-            resolver = get_resolver(nameserver)
-            answers = resolver.resolve(domain, 'A')
-            return [str(r) for r in answers]
+            resolver = get_system_resolver()
+            resolver.timeout = 2
+            resolver.lifetime = 3
+            return [str(r) for r in resolver.resolve(domain, 'A')]
         except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-            continue
-        except dns.resolver.Timeout:
-            timeout_count += 1
-            if timeout_count >= 2:
-                break
+            return []
         except Exception:
-            continue
+            return None
+            
     try:
-        answers = get_system_resolver().resolve(domain, 'A')
-        return [str(r) for r in answers]
-    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-        return []
-    except Exception:
+        return await asyncio.wait_for(loop.run_in_executor(None, _get), timeout=5.0)
+    except asyncio.TimeoutError:
         return None
 
-def check_spf(domain):
-    timeout_count = 0
-    for nameserver in DNS_SERVERS:
-        try:
-            resolver = get_resolver(nameserver)
-            answers = resolver.resolve(domain, 'TXT')
-            for r in answers:
-                txt = str(r).lower()
-                if "spf1" in txt:
-                    return True
-            return False
-        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-            return False
-        except dns.resolver.Timeout:
-            timeout_count += 1
-            if timeout_count >= 2:
-                break
-        except:
-            continue
-    return False
+async def check_spf(domain):
+    loop = asyncio.get_running_loop()
+    def _get():
+        timeout_count = 0
+        for nameserver in DNS_SERVERS:
+            try:
+                resolver = get_resolver(nameserver)
+                resolver.timeout = 2
+                resolver.lifetime = 3
+                for r in resolver.resolve(domain, 'TXT'):
+                    if "spf1" in str(r).lower(): return True
+                return False
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+                return False
+            except dns.resolver.Timeout:
+                timeout_count += 1
+                if timeout_count >= 2: break
+            except Exception:
+                continue
+        return False
+        
+    try:
+        return await asyncio.wait_for(loop.run_in_executor(None, _get), timeout=4.0)
+    except asyncio.TimeoutError:
+        return False
 
-def check_dmarc(domain):
-    timeout_count = 0
-    for nameserver in DNS_SERVERS:
-        try:
-            resolver = get_resolver(nameserver)
-            resolver.resolve(f"_dmarc.{domain}", 'TXT')
-            return True
-        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
-            return False
-        except dns.resolver.Timeout:
-            timeout_count += 1
-            if timeout_count >= 2:
-                break
-        except:
-            continue
-    return False
+async def check_dmarc(domain):
+    loop = asyncio.get_running_loop()
+    def _get():
+        timeout_count = 0
+        for nameserver in DNS_SERVERS:
+            try:
+                resolver = get_resolver(nameserver)
+                resolver.timeout = 2
+                resolver.lifetime = 3
+                resolver.resolve(f"_dmarc.{domain}", 'TXT')
+                return True
+            except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+                return False
+            except dns.resolver.Timeout:
+                timeout_count += 1
+                if timeout_count >= 2: break
+            except Exception:
+                continue
+        return False
+        
+    try:
+        return await asyncio.wait_for(loop.run_in_executor(None, _get), timeout=4.0)
+    except asyncio.TimeoutError:
+        return False
 
-def smtp_verify(email, mx_hosts):
+async def smtp_verify(email, mx_hosts):
     domain = email.split("@")[1]
     
     ports = [
@@ -171,10 +208,11 @@ def smtp_verify(email, mx_hosts):
     
     last_status = "UNKNOWN"
     timeout_count = 0
+    loop = asyncio.get_running_loop()
 
     for mx_host in mx_hosts[:3]:
-        # Resolve MX hostname to IP via public DNS to bypass broken Windows DNS
-        target = resolve_host(mx_host)
+        # Await the resolution of the MX target
+        target = await resolve_host(mx_host)
 
         for port, mode in ports:
             smtp = None
@@ -183,30 +221,42 @@ def smtp_verify(email, mx_hosts):
                     context = ssl.create_default_context()
                     context.check_hostname = False
                     context.verify_mode = ssl.CERT_NONE
-                    smtp = smtplib.SMTP_SSL(target, port, timeout=SMTP_TIMEOUT, context=context)
+                    
+                    def _connect_ssl():
+                        return smtplib.SMTP_SSL(target, port, timeout=SMTP_TIMEOUT, context=context)
+                    smtp = await loop.run_in_executor(None, _connect_ssl)
                 else:
-                    smtp = smtplib.SMTP(target, port, timeout=SMTP_TIMEOUT)
+                    def _connect_plain():
+                        return smtplib.SMTP(target, port, timeout=SMTP_TIMEOUT)
+                    smtp = await loop.run_in_executor(None, _connect_plain)
                 
-                smtp.ehlo(EHLO_HOST)
+                def _ehlo_tls():
+                    smtp.ehlo(EHLO_HOST)
+                    if mode == 'starttls':
+                        try:
+                            ctx = ssl.create_default_context()
+                            ctx.check_hostname = False
+                            ctx.verify_mode = ssl.CERT_NONE
+                            smtp.starttls(context=ctx)
+                            smtp.ehlo(EHLO_HOST)
+                        except:
+                            pass
+                await loop.run_in_executor(None, _ehlo_tls)
                 
-                if mode == 'starttls':
-                    try:
-                        context = ssl.create_default_context()
-                        context.check_hostname = False
-                        context.verify_mode = ssl.CERT_NONE
-                        smtp.starttls(context=context)
-                        smtp.ehlo(EHLO_HOST)
-                    except:
-                        pass
+                def _exchange():
+                    smtp.mail(MAIL_FROM)
+                    c, m = smtp.rcpt(email)
+                    if c == 250:
+                        fake = f"test{random.randint(10000, 99999)}@{domain}"
+                        smtp.mail(MAIL_FROM)
+                        fc, _ = smtp.rcpt(fake)
+                        return c, m, fc
+                    return c, m, 0
                 
-                smtp.mail(MAIL_FROM)
-                code, msg = smtp.rcpt(email)
+                code, msg, fake_code = await loop.run_in_executor(None, _exchange)
                 msg_str = str(msg).lower()
 
                 if code == 250:
-                    fake = f"test{random.randint(10000, 99999)}@{domain}"
-                    smtp.mail(MAIL_FROM)
-                    fake_code, _ = smtp.rcpt(fake)
                     if fake_code == 250:
                         return "CATCH_ALL"
                     return "VALID"
@@ -285,7 +335,7 @@ async def verify_email(email):
     if local in ROLE_ACCOUNTS:
         result["role"] = True
 
-    mx_hosts = get_mx(domain)
+    mx_hosts = await get_mx(domain)
 
     if mx_hosts is None:
         result["status"] = "MX ERROR"
@@ -293,7 +343,7 @@ async def verify_email(email):
         return result
 
     if len(mx_hosts) == 0:
-        a_records = get_a_record(domain)
+        a_records = await get_a_record(domain)
         if not a_records:
             result["status"] = "MX ERROR"
             result["score"] = 2
@@ -308,18 +358,16 @@ async def verify_email(email):
         result["smtp"] = True
         result["details"] = "Major provider - SMTP verification not possible"
         
-        result["spf"] = check_spf(domain)
-        result["dmarc"] = check_dmarc(domain)
+        result["spf"] = await check_spf(domain)
+        result["dmarc"] = await check_dmarc(domain)
         return result
 
-    result["spf"] = check_spf(domain)
-    result["dmarc"] = check_dmarc(domain)
-
-    loop = asyncio.get_running_loop()
+    result["spf"] = await check_spf(domain)
+    result["dmarc"] = await check_dmarc(domain)
 
     try:
         status = await asyncio.wait_for(
-            loop.run_in_executor(None, smtp_verify, email, mx_hosts),
+            smtp_verify(email, mx_hosts),
             timeout=30.0
         )
     except asyncio.TimeoutError:
