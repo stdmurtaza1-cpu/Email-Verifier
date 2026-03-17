@@ -1,0 +1,267 @@
+from fastapi import APIRouter, Depends, HTTPException, Security, Request, UploadFile, File, Form, Body, BackgroundTasks
+from fastapi.responses import FileResponse
+from typing import Optional
+from pydantic import BaseModel
+import re
+import os
+import uuid
+from sqlalchemy.orm import Session
+from database import get_db, User
+from middleware.auth import get_current_user
+from core.verifier import verify_email
+import csv
+import io
+import asyncio
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
+
+router = APIRouter()
+
+# --- Bulk (1M+) job config ---
+BULK_MAX_EMAILS = 1_000_000
+BULK_CHUNK_SIZE = 2000
+BULK_CONCURRENCY = 50
+BULK_MAX_FILE_BYTES = 100 * 1024 * 1024  # 100 MB
+JOBS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "jobs")
+
+_bulk_jobs: dict[str, dict] = {}  # job_id -> { status, total, processed, results_path, error, user_id }
+
+
+def _ensure_jobs_dir():
+    os.makedirs(JOBS_DIR, exist_ok=True)
+
+
+async def _process_bulk_job(job_id: str, emails: list[str]):
+    _ensure_jobs_dir()
+    job = _bulk_jobs.get(job_id)
+    if not job or job["status"] != "processing":
+        return
+    total = len(emails)
+    results_path = os.path.join(JOBS_DIR, f"{job_id}.csv")
+    sem = asyncio.Semaphore(BULK_CONCURRENCY)
+
+    async def bounded_verify(email: str):
+        async with sem:
+            return await verify_email(email)
+
+    try:
+        with open(results_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["email", "status", "score", "syntax", "mx", "smtp", "catch_all", "disposable", "role", "spf", "dmarc", "details"])
+            processed = 0
+            for start in range(0, total, BULK_CHUNK_SIZE):
+                chunk = emails[start : start + BULK_CHUNK_SIZE]
+                tasks = [bounded_verify(e) for e in chunk]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for r in results:
+                    if isinstance(r, Exception):
+                        row = ["", "ERROR", 0, False, False, False, False, False, False, False, False, str(r)]
+                    else:
+                        row = [
+                            r.get("email", ""),
+                            r.get("status", ""),
+                            r.get("score", 0),
+                            r.get("syntax", False),
+                            r.get("mx", False),
+                            r.get("smtp", False),
+                            r.get("catch_all", False),
+                            r.get("disposable", False),
+                            r.get("role", False),
+                            r.get("spf", False),
+                            r.get("dmarc", False),
+                            (r.get("details") or ""),
+                        ]
+                    writer.writerow(row)
+                processed += len(chunk)
+                job["processed"] = processed
+                job["status"] = "processing"
+        job["status"] = "completed"
+        job["processed"] = total
+    except Exception as e:
+        job["status"] = "failed"
+        job["error"] = str(e)
+    return
+
+
+class VerifyRequest(BaseModel):
+    email: str
+
+@router.post("/verify-free")
+@limiter.limit("10/day")
+async def verify_free(request: Request, payload: VerifyRequest):
+    result = await verify_email(payload.email)
+    return result
+
+@router.post("/verify")
+async def verify_single(request: Request, payload: VerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.credits <= 0:
+        raise HTTPException(status_code=403, detail="No credits remaining")
+
+    result = await verify_email(payload.email)
+    
+    current_user.credits -= 1
+    db.commit()
+    
+    result["credits_remaining"] = current_user.credits
+    return result
+
+@router.post("/bulk-verify")
+async def verify_bulk(request: Request, file: Optional[UploadFile] = File(None), raw_text: Optional[str] = Form(None), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    text = ""
+    if file and file.filename:
+        content = await file.read()
+        try:
+            text = content.decode('utf-8')
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid file encoding. Please upload a UTF-8 file (.csv or .txt).")
+    elif raw_text:
+        text = raw_text
+    else:
+        raise HTTPException(status_code=400, detail="No file or text provided for bulk verification.")
+        
+    # Extract emails using regex across the entire parsed text
+    email_pattern = r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+"
+    emails = list(set(re.findall(email_pattern, text)))
+                
+    if not emails:
+        raise HTTPException(status_code=400, detail="No valid emails found in the provided data.")
+        
+    if len(emails) > 2000:
+        raise HTTPException(status_code=400, detail="For more than 2000 emails use POST /api/bulk-verify-large with a file. Max 1 million.")
+        
+    if current_user.credits < len(emails):
+        raise HTTPException(status_code=403, detail=f"Insufficient credits. You have {current_user.credits} but need {len(emails)}.")
+        
+    # Process concurrently using the custom engine with connection limits
+    sem = asyncio.Semaphore(50)
+    
+    async def bounded_verify(email):
+        async with sem:
+            return await verify_email(email)
+            
+    tasks = [bounded_verify(email) for email in emails]
+    results = await asyncio.gather(*tasks)
+    
+    current_user.credits -= len(emails)
+    db.commit()
+    
+    return {
+        "results": results,
+        "total": len(results),
+        "credits_used": len(results),
+        "credits_remaining": current_user.credits
+    }
+
+
+@router.post("/bulk-verify-large")
+async def verify_bulk_large(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Bulk verify up to 1M emails via background job. Returns job_id; poll status and download CSV when done."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided.")
+    size = 0
+    chunks = []
+    while True:
+        chunk = await file.read(512 * 1024)
+        if not chunk:
+            break
+        size += len(chunk)
+        if size > BULK_MAX_FILE_BYTES:
+            raise HTTPException(status_code=400, detail=f"File too large. Max {BULK_MAX_FILE_BYTES // (1024*1024)} MB.")
+        chunks.append(chunk)
+    try:
+        text = b"".join(chunks).decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid encoding. Use UTF-8.")
+
+    email_pattern = r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+"
+    emails = list(dict.fromkeys(re.findall(email_pattern, text)))[:BULK_MAX_EMAILS]
+
+    if not emails:
+        raise HTTPException(status_code=400, detail="No valid emails found.")
+    if current_user.credits < len(emails):
+        raise HTTPException(status_code=403, detail=f"Insufficient credits. Need {len(emails)}, you have {current_user.credits}.")
+
+    job_id = str(uuid.uuid4())
+    _ensure_jobs_dir()
+    _bulk_jobs[job_id] = {
+        "status": "processing",
+        "total": len(emails),
+        "processed": 0,
+        "results_path": None,
+        "error": None,
+        "user_id": current_user.id,
+    }
+    current_user.credits -= len(emails)
+    db.commit()
+
+    background_tasks.add_task(_process_bulk_job, job_id, emails)
+    return {
+        "job_id": job_id,
+        "total": len(emails),
+        "message": "Bulk verification started. Use GET /api/bulk-verify/status/{job_id} to poll progress, then GET /api/bulk-verify/download/{job_id} to download CSV.",
+        "credits_remaining": current_user.credits,
+    }
+
+
+@router.get("/bulk-verify/status/{job_id}")
+async def bulk_job_status(job_id: str, current_user: User = Depends(get_current_user)):
+    job = _bulk_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if job.get("user_id") != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your job.")
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "total": job["total"],
+        "processed": job["processed"],
+        "progress_pct": round(100 * job["processed"] / job["total"], 1) if job["total"] else 0,
+        "download_ready": job["status"] == "completed",
+        "error": job.get("error"),
+    }
+
+
+@router.get("/bulk-verify/download/{job_id}")
+async def bulk_job_download(job_id: str, current_user: User = Depends(get_current_user)):
+    job = _bulk_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if job.get("user_id") != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your job.")
+    if job["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Job not ready for download. Check status first.")
+    path = os.path.join(JOBS_DIR, f"{job_id}.csv")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Result file not found.")
+    return FileResponse(path, filename=f"verified_{job_id}.csv", media_type="text/csv")
+
+
+class BatchVerifyRequest(BaseModel):
+    emails: list[str]
+
+@router.post("/verify-batch")
+async def verify_batch(request: Request, payload: BatchVerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.credits < len(payload.emails):
+        raise HTTPException(status_code=403, detail="Insufficient credits")
+
+    # Limit batch size to 5 as requested
+    emails = payload.emails[:5]
+    
+    tasks = [verify_email(email) for email in emails]
+    results = await asyncio.gather(*tasks)
+    
+    current_user.credits -= len(results)
+    db.commit()
+    
+    return {
+        "results": results,
+        "credits_remaining": current_user.credits
+    }

@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+dnspython
+aiosmtplib
+python-multipart
+sqlalchemy
+slowapi
+passlib[bcrypt]
+python-jose[cryptography]

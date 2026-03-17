@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VerifyNinja - Administrator Access</title>
+    <link rel="stylesheet" href="admin.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    
+    <!-- AUTHENTICATION VIEW -->
+    <div id="admin-auth-view" class="app-container">
+        <header>
+            <div class="hero" style="margin-top: 5vh; text-align: center;">
+                <h1 style="color: var(--danger);"><span style="color:white;">System</span> Administrator</h1>
+                <p>Restricted environment. Enter master credentials.</p>
+            </div>
+        </header>
+        <main style="display: flex; justify-content: center;">
+            <section class="card glass" style="width: 100%; max-width: 400px; padding: 2.5rem; border-color: var(--danger);">
+                <div style="display: flex; flex-direction: column; gap: 1.2rem;">
+                    <input type="text" id="admin-user-input" placeholder="Admin Username" required style="padding: 1rem; border-radius: 8px;">
+                    <input type="password" id="admin-pass-input" placeholder="Master Password" required style="padding: 1rem; border-radius: 8px;">
+                    <button id="admin-login-btn" class="btn warning-btn" style="margin-top: 0.5rem; background: var(--danger); color: white; padding: 1rem; border-radius: 8px;">
+                        <span class="btn-text" id="admin-btn-text">Authenticate</span>
+                        <div class="loader hidden" id="admin-loader"></div>
+                    </button>
+                    <div id="admin-error-msg" class="hidden" style="color: var(--danger); font-size: 0.85rem; text-align: center; padding-top: 0.5rem;"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MAIN DASHBOARD VIEW -->
+    <div id="admin-dashboard-view" class="dashboard-layout hidden">
+        
+        <!-- SIDEBAR -->
+        <aside class="sidebar glass" style="border-right: 1px solid var(--border-color);">
+            <div style="padding: 1.5rem; text-align: center; border-bottom: 1px solid var(--border-color);">
+                <h2 style="color: var(--primary); font-size: 1.2rem; letter-spacing: 1px;">ADMIN PANEL</h2>
+            </div>
+            <nav style="display: flex; flex-direction: column; gap: 0.5rem; padding: 1.5rem;">
+                <button class="nav-btn active" data-target="panel-users">👥 Users</button>
+                <button class="nav-btn" data-target="panel-stats">📊 Statistics</button>
+                <button class="nav-btn" data-target="panel-keys">🔑 API Keys</button>
+                <button id="admin-logout-btn" class="nav-btn logout" style="margin-top: auto; color: var(--danger); border-top: 1px solid var(--border-color); padding-top: 1rem;">🚪 Logout</button>
+            </nav>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="content-area">
+            
+            <!-- USERS PANEL -->
+            <div id="panel-users" class="admin-panel active">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>User Directory</h2>
+                    <input type="text" id="user-search" placeholder="Search explicit emails..." style="width: 300px; padding: 0.8rem; border-radius: 8px;">
+                </div>
+                
+                <div class="card glass">
+                    <div class="table-container" style="max-height: 70vh; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead style="position: sticky; top: 0; background: rgba(0,0,0,0.8);">
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <th style="padding: 1rem;">Email</th>
+                                    <th style="padding: 1rem;">Plan</th>
+                                    <th style="padding: 1rem;">Credits</th>
+                                    <th style="padding: 1rem;">Join Date</th>
+                                    <th style="padding: 1rem;">Active</th>
+                                    <th style="padding: 1rem;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-users-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATISTICS PANEL -->
+            <div id="panel-stats" class="admin-panel hidden">
+                <h2>Platform Statistics</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                    <div class="card glass text-center" style="padding: 2rem;">
+                        <h4 style="color: var(--text-muted); font-size: 0.9rem;">Total Users</h4>
+                        <div id="stats-total-users" style="font-size: 3rem; font-weight: 800; color: var(--primary);">0</div>
+                    </div>
+                    <div class="card glass text-center" style="padding: 2rem;">
+                        <h4 style="color: var(--text-muted); font-size: 0.9rem;">Verifications Today</h4>
+                        <div id="stats-verifs-today" style="font-size: 3rem; font-weight: 800; color: var(--success);">0</div>
+                    </div>
+                    <div class="card glass text-center" style="padding: 2rem;">
+                        <h4 style="color: var(--text-muted); font-size: 0.9rem;">Verifications This Month</h4>
+                        <div id="stats-verifs-month" style="font-size: 3rem; font-weight: 800; color: var(--secondary);">0</div>
+                    </div>
+                    <div class="card glass text-center" style="padding: 2rem;">
+                        <h4 style="color: var(--text-muted); font-size: 0.9rem;">Verifications All Time</h4>
+                        <div id="stats-verifs-all" style="font-size: 3rem; font-weight: 800; color: #ffb300;">0</div>
+                    </div>
+                </div>
+                
+                <div class="card glass" style="margin-top: 2rem; padding: 2rem;">
+                    <h3>Daily Verifications (Last 30 Days)</h3>
+                    <div style="height: 350px; margin-top: 1rem; position: relative;">
+                        <canvas id="admin-stats-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API KEYS PANEL -->
+            <div id="panel-keys" class="admin-panel hidden">
+                <h2>API Key Management</h2>
+                <div class="card glass" style="margin-top: 1.5rem;">
+                    <div class="table-container" style="max-height: 70vh; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead style="position: sticky; top: 0; background: rgba(0,0,0,0.8);">
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <th style="padding: 1rem;">User Email</th>
+                                    <th style="padding: 1rem;">API Key</th>
+                                    <th style="padding: 1rem;">Status</th>
+                                    <th style="padding: 1rem;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-keys-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div> <!-- End Dashboard View -->
+    
+    <script src="admin.js"></script>
+</body>
+</html>
