@@ -7,3 +7,6 @@ sqlalchemy
 slowapi
 passlib[bcrypt]
 python-jose[cryptography]
+python-dotenv
+celery
+redis

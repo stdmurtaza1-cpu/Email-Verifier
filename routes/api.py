@@ -11,9 +11,10 @@ from middleware.auth import get_current_user
 from core.verifier import verify_email
 import csv
 import io
-import asyncio
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from celery.result import AsyncResult, GroupResult
+from celery import group
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -265,3 +266,80 @@ async def verify_batch(request: Request, payload: BatchVerifyRequest, current_us
         "results": results,
         "credits_remaining": current_user.credits
     }
+
+@router.post("/verify-batch-async")
+async def verify_batch_async(request: Request, payload: BatchVerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.credits < len(payload.emails):
+        raise HTTPException(status_code=403, detail="Insufficient credits")
+
+    # Deduct credits immediately
+    current_user.credits -= len(payload.emails)
+    db.commit()
+
+    # Dispatch to Celery Queue with Chunking
+    try:
+        from celery_worker import verify_batch_emails, celery_app
+        
+        chunk_size = 100
+        emails = payload.emails
+        chunks = [emails[i:i + chunk_size] for i in range(0, len(emails), chunk_size)]
+        
+        if len(chunks) == 1:
+            task = verify_batch_emails.delay(chunks[0])
+            task_id = task.id
+        else:
+            job = group(verify_batch_emails.s(chunk) for chunk in chunks)
+            result = job.apply_async()
+            result.save()
+            task_id = result.id
+            
+    except Exception as e:
+        # Refund credits if celery fails to dispatch
+        current_user.credits += len(payload.emails)
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Failed to dispatch to Celery. Ensure Redis is running: {str(e)}")
+
+    return {
+        "task_id": task_id,
+        "message": "Batch processing started in background.",
+        "total_queued": len(payload.emails),
+        "chunks": len(chunks),
+        "credits_remaining": current_user.credits
+    }
+
+@router.get("/task-status/{task_id}")
+async def get_task_status(task_id: str, current_user: User = Depends(get_current_user)):
+    try:
+        from celery_worker import celery_app
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Celery worker not configured properly.")
+        
+    # Attempt to restore as GroupResult first
+    group_result = GroupResult.restore(task_id, app=celery_app)
+    if group_result:
+        completed = group_result.completed_count()
+        total = len(group_result)
+        if group_result.ready():
+            results = []
+            for res_list in group_result.join():
+                if isinstance(res_list, list):
+                    results.extend(res_list)
+            return {"task_id": task_id, "status": "completed", "results": results}
+        else:
+            return {"task_id": task_id, "status": "processing", "progress": f"{completed}/{total} chunks completed"}
+        
+    # Fallback to single AsyncResult lookup
+    task_result = AsyncResult(task_id, app=celery_app)
+    
+    if task_result.state == 'PENDING':
+        return {"task_id": task_id, "status": "pending"}
+    elif task_result.state == 'SUCCESS':
+        return {"task_id": task_id, "status": "completed", "results": task_result.result}
+    elif task_result.state == 'RETRY':
+        return {"task_id": task_id, "status": "retrying (greylisted delay limit reached)"}
+    elif task_result.state == 'FAILURE':
+        return {"task_id": task_id, "status": "failed", "error": str(task_result.info)}
+    elif task_result.state == 'STARTED':
+        return {"task_id": task_id, "status": "processing"}
+    else:
+        return {"task_id": task_id, "status": task_result.state.lower()}
