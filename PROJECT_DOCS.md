@@ -153,10 +153,10 @@ Email Verifier/
 
 ## 9. PRICING PLANS (پرائسنگ پلانز)
 
-- **FREE**: 100 Credits (Fixed). Basic features.
-- **STARTER**: 5,000 Credits. Faster processing.
-- **PRO**: 50,000 Credits. Full API & Bulk access.
-- **ENTERPRISE**: Unlimited Credits for large scale.
+- **FREE**: $0. 100 Verifications Daily. Basic features.
+- **STARTER**: $9.99/mo. 100k Daily emails, 100MB Cloud Storage, Bulk Engine, 50k Daily API.
+- **PRO**: $14.9/mo. 150k Daily emails, 500MB Cloud Storage, Bulk Engine, Unlimited API.
+- **ENTERPRISE**: $39.9/mo. 500k Daily emails, 1GB Cloud Storage, Bulk Engine, Unlimited API.
 
 ---
 

@@ -4,7 +4,7 @@ from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from typing import Optional
 from database import get_db, User
-from middleware.auth import get_current_user
+from middleware.auth import get_current_user, get_raw_current_user
 from pydantic import BaseModel
 import os
 import bcrypt
@@ -26,6 +26,9 @@ ADMIN_TOKEN_EXPIRE_MINUTES = 60 * 8 # 8 hours
 class UserAuthDTO(BaseModel):
     email: str
     password: str
+
+class LinkKeyDTO(BaseModel):
+    partner_key: str
 
 class Token(BaseModel):
     access_token: str
@@ -61,8 +64,14 @@ async def register(request: Request, user_data: UserAuthDTO, db: Session = Depen
         )
     
     hashed_password = get_password_hash(user_data.password)
-    # Give 100 free credits
-    new_user = User(email=user_data.email, password_hash=hashed_password, credits=100)
+    import uuid
+    # Give 100 free credits and explicitly generated secure API key
+    new_user = User(
+        email=user_data.email, 
+        password_hash=hashed_password, 
+        credits=100, 
+        api_key=str(uuid.uuid4())
+    )
     
     db.add(new_user)
     db.commit()
@@ -91,14 +100,61 @@ async def login(request: Request, user_data: UserAuthDTO, db: Session = Depends(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+@router.post("/link-key")
+@limiter.limit("5/minute")
+async def link_partner_key(request: Request, data: LinkKeyDTO, db: Session = Depends(get_db), current_user: User = Depends(get_raw_current_user)):
+    user_to_update = db.query(User).filter(User.id == current_user.id).first()
+    
+    if not data.partner_key or not data.partner_key.strip():
+        user_to_update.linked_api_key = None
+        user_to_update.partner_status = None
+        db.commit()
+        return {"message": "Partner license unlinked successfully."}
+        
+    partner_key = data.partner_key.strip()
+    partner = db.query(User).filter(User.api_key == partner_key).first()
+    
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner API Key not found.")
+    
+    if partner.id == user_to_update.id:
+        raise HTTPException(status_code=400, detail="Cannot link your own account key.")
+        
+    if not getattr(partner, "is_active", True) or not getattr(partner, "api_key_active", True):
+        raise HTTPException(status_code=403, detail="Partner account is currently disabled.")
+        
+    user_to_update.linked_api_key = partner_key
+    user_to_update.partner_status = "pending"
+    db.commit()
+    return {"message": "License link request sent! Waiting for partner approval."}
+
 @router.get("/me")
 async def read_users_me(current_user: User = Depends(get_current_user)):
-    return {
-        "email": current_user.email,
-        "plan": current_user.plan,
-        "credits": current_user.credits,
-        "api_key": current_user.api_key
-    }
+    from datetime import date
+    if hasattr(current_user, 'is_linked_session'):
+        child = current_user.child_user_obj
+        used_today = child.partner_credits_used_today if child.partner_limit_reset_date == date.today() else 0
+        rem_credits = max(0, child.partner_daily_limit - used_today)
+        return {
+            "email": current_user.original_email,
+            "plan": current_user.plan + " (Shared License)",
+            "credits": rem_credits,
+            "api_key": current_user.original_api_key,
+            "partner_status": "approved",
+            "partner_daily_limit": child.partner_daily_limit,
+            "partner_credits_used_today": used_today
+        }
+    else:
+        used_today = getattr(current_user, "partner_credits_used_today", 0) if getattr(current_user, "partner_limit_reset_date", None) == date.today() else 0
+        return {
+            "email": getattr(current_user, 'original_email', current_user.email),
+            "plan": current_user.plan,
+            "credits": current_user.credits,
+            "api_key": getattr(current_user, 'original_api_key', current_user.api_key),
+            "partner_status": getattr(current_user, "partner_status", None),
+            "partner_daily_limit": getattr(current_user, "partner_daily_limit", None),
+            "partner_credits_used_today": used_today
+        }
 
 class AdminAuthDTO(BaseModel):
     username: str

@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_
 from database import get_db, UserFile, User
 from middleware.auth import get_current_user
 
@@ -23,11 +24,19 @@ class SaveResultRequest(BaseModel):
 
 @router.post("/save-results")
 async def save_results(req: SaveResultRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    user_dir = os.path.join(UPLOAD_DIR, str(current_user.id))
+    true_user_id = getattr(current_user, 'original_id', current_user.id)
+    pool_api_key = getattr(current_user, 'original_api_key', current_user.api_key)
+    
+    user_dir = os.path.join(UPLOAD_DIR, str(true_user_id))
     os.makedirs(user_dir, exist_ok=True)
     
-    # Calculate current usage
-    user_files_db = db.query(UserFile).filter(UserFile.user_id == current_user.id).all()
+    # Calculate current usage for the entire pool
+    user_files_db = db.query(UserFile).filter(
+        or_(
+            UserFile.pool_api_key == pool_api_key,
+            and_(UserFile.pool_api_key == None, UserFile.user_id == current_user.id)
+        )
+    ).all()
     current_usage = sum(f.file_size for f in user_files_db)
     
     # Create CSV
@@ -64,7 +73,8 @@ async def save_results(req: SaveResultRequest, db: Session = Depends(get_db), cu
         f.write(csv_data)
         
     new_file = UserFile(
-        user_id=current_user.id,
+        user_id=true_user_id,
+        pool_api_key=pool_api_key,
         filename=safe_filename,
         file_size=file_size,
         file_type="csv",
@@ -83,7 +93,8 @@ async def save_results(req: SaveResultRequest, db: Session = Depends(get_db), cu
 
 @router.get("/files")
 async def get_files(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    files = db.query(UserFile).filter(UserFile.user_id == current_user.id).order_by(UserFile.created_at.desc()).all()
+    true_user_id = getattr(current_user, 'original_id', current_user.id)
+    files = db.query(UserFile).filter(UserFile.user_id == true_user_id).order_by(UserFile.created_at.desc()).all()
     res = []
     for f in files:
         res.append({
@@ -97,11 +108,12 @@ async def get_files(db: Session = Depends(get_db), current_user: User = Depends(
 
 @router.get("/download/{file_id}")
 async def download_file(file_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    user_file = db.query(UserFile).filter(UserFile.id == file_id, UserFile.user_id == current_user.id).first()
+    true_user_id = getattr(current_user, 'original_id', current_user.id)
+    user_file = db.query(UserFile).filter(UserFile.id == file_id, UserFile.user_id == true_user_id).first()
     if not user_file:
         raise HTTPException(status_code=404, detail="File not found")
         
-    file_path = os.path.join(UPLOAD_DIR, str(current_user.id), user_file.filename)
+    file_path = os.path.join(UPLOAD_DIR, str(true_user_id), user_file.filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File missing from disk")
         
@@ -109,11 +121,12 @@ async def download_file(file_id: int, db: Session = Depends(get_db), current_use
 
 @router.delete("/delete/{file_id}")
 async def delete_file(file_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    user_file = db.query(UserFile).filter(UserFile.id == file_id, UserFile.user_id == current_user.id).first()
+    true_user_id = getattr(current_user, 'original_id', current_user.id)
+    user_file = db.query(UserFile).filter(UserFile.id == file_id, UserFile.user_id == true_user_id).first()
     if not user_file:
         raise HTTPException(status_code=404, detail="File not found")
         
-    file_path = os.path.join(UPLOAD_DIR, str(current_user.id), user_file.filename)
+    file_path = os.path.join(UPLOAD_DIR, str(true_user_id), user_file.filename)
     if os.path.exists(file_path):
         os.remove(file_path)
         
@@ -123,7 +136,14 @@ async def delete_file(file_id: int, db: Session = Depends(get_db), current_user:
 
 @router.get("/usage")
 async def get_usage(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    files = db.query(UserFile).filter(UserFile.user_id == current_user.id).all()
+    pool_api_key = getattr(current_user, 'original_api_key', current_user.api_key)
+    
+    files = db.query(UserFile).filter(
+        or_(
+            UserFile.pool_api_key == pool_api_key,
+            and_(UserFile.pool_api_key == None, UserFile.user_id == current_user.id)
+        )
+    ).all()
     used_bytes = sum(f.file_size for f in files)
     perc = (used_bytes / MAX_STORAGE_BYTES) * 100
     return {

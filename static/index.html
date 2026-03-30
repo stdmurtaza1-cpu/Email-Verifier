@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VerifyNinja | Professional Email Validation SaaS</title>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- Main Stylesheet -->
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -43,6 +43,11 @@
 
     <!-- MAIN APP CONTAINER -->
     <main id="app-root" style="padding-top: 80px;">
+        <!-- Animated Background Orbs -->
+        <div class="bg-orbs">
+            <div class="orb orb-1"></div>
+            <div class="orb orb-2"></div>
+        </div>
 
         <!-- ==========================================
              PAGE 1: LANDING/HOME VIEW
@@ -157,11 +162,12 @@
                         <h3>FREE</h3>
                         <div class="price">$0<span>/month</span></div>
                         <ul class="price-features">
-                            <li>✔️ 100 Verifications Total</li>
+                            <li>✔️ 100 Verifications / Daily</li>
                             <li>✔️ Single Email Verify</li>
                             <li>✔️ Basic Status Results</li>
                             <li class="disabled">❌ Bulk Engine</li>
                             <li class="disabled">❌ API Access</li>
+                            <li class="disabled">❌ Cloud Storage</li>
                         </ul>
                         <button class="btn btn-outline w-100" onclick="document.getElementById('nav-signup-btn').click()">Get Started Free</button>
                     </div>
@@ -169,13 +175,13 @@
                     <!-- Starter -->
                     <div class="price-card glass">
                         <h3>STARTER</h3>
-                        <div class="price">$19<span>/month</span></div>
+                        <div class="price">$9.99<span>/month</span></div>
                         <ul class="price-features">
-                            <li>✔️ 5,000 Verifications/mo</li>
-                            <li>✔️ Bulk Engine Access</li>
-                            <li>✔️ All 10 Status Types</li>
+                            <li>✔️ 100k Verifications / Daily</li>
+                            <li>✔️ Bulk Engine Included</li>
+                            <li>✔️ 50k API Access / Daily</li>
+                            <li>✔️ 100MB Cloud Storage</li>
                             <li>✔️ CSV Downloads</li>
-                            <li class="disabled">❌ API Access</li>
                         </ul>
                         <a href="mailto:std.murtaza@gmail.com?subject=Starter Plan Upgrade" class="btn btn-primary w-100" style="text-align: center; text-decoration: none;">Contact to Upgrade</a>
                     </div>
@@ -184,12 +190,12 @@
                     <div class="price-card glass popular">
                         <div class="popular-badge">RECOMMENDED</div>
                         <h3>PRO</h3>
-                        <div class="price">$49<span>/month</span></div>
+                        <div class="price">$14.9<span>/month</span></div>
                         <ul class="price-features">
-                            <li>✔️ 50,000 Verifications/mo</li>
-                            <li>✔️ Everything in Starter</li>
-                            <li>✔️ Priority Processing</li>
-                            <li>✔️ API Access Included</li>
+                            <li>✔️ 150k Verifications / Daily</li>
+                            <li>✔️ Bulk Engine Included</li>
+                            <li>✔️ Unlimited API Access</li>
+                            <li>✔️ 500MB Cloud Storage</li>
                             <li>✔️ Advanced Reporting</li>
                         </ul>
                         <a href="mailto:std.murtaza@gmail.com?subject=Pro Plan Upgrade" class="btn btn-primary w-100" style="text-align: center; text-decoration: none; box-shadow: 0 0 15px var(--primary-glow);">Contact to Upgrade</a>
@@ -198,13 +204,13 @@
                     <!-- Enterprise -->
                     <div class="price-card glass">
                         <h3>ENTERPRISE</h3>
-                        <div class="price">$199<span>/month</span></div>
+                        <div class="price">$39.9<span>/month</span></div>
                         <ul class="price-features">
-                            <li>✔️ 500,000 Verifications/mo</li>
-                            <li>✔️ Everything in Pro</li>
+                            <li>✔️ 500k Verifications / Daily</li>
+                            <li>✔️ Bulk Engine Included</li>
+                            <li>✔️ Unlimited API Access</li>
+                            <li>✔️ 1GB Cloud Storage</li>
                             <li>✔️ Dedicated Support</li>
-                            <li>✔️ Custom Integrations</li>
-                            <li>✔️ Uptime SLA</li>
                         </ul>
                         <a href="mailto:std.murtaza@gmail.com?subject=Enterprise Plan Upgrade" class="btn btn-primary w-100" style="text-align: center; text-decoration: none;">Contact to Upgrade</a>
                     </div>
@@ -272,6 +278,7 @@
                         <a onclick="showDashTab('single')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">✉️ Single Verify</a>
                         <a onclick="showDashTab('bulk')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">📋 Bulk Verify</a>
                         <a onclick="showDashTab('plan')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">💳 My Plan</a>
+                        <a onclick="showDashTab('partner')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">🤝 Partner Licenses</a>
                         <a onclick="showDashTab('history')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">📜 History</a>
                         <a onclick="showDashTab('apikeys')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">🔑 API Keys</a>
                         <a onclick="showDashTab('files')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">💾 My Files</a>
@@ -288,20 +295,21 @@
                         
                         <div class="grid-4 mt-4">
                             <div class="glass p-3 rounded text-center">
-                                <h4 class="text-muted">Credits Remaining</h4>
+                                <h4 class="text-muted">Verifications Limit</h4>
                                 <h2 class="gradient-text" id="dash-credits-huge">0</h2>
                             </div>
                             <div class="glass p-3 rounded text-center">
                                 <h4 class="text-muted">Plan Tier</h4>
                                 <h2 class="badge-active" id="dash-plan-huge" style="text-transform: uppercase;">FREE</h2>
                             </div>
-                            <div class="glass p-3 rounded text-center">
-                                <h4 class="text-muted">Avg Speed</h4>
-                                <h2 style="color: var(--success);">1.2s</h2>
+                            <div class="glass p-3 rounded text-center" style="display: flex; flex-direction: column; justify-content: center;">
+                                <h4 class="text-muted" style="margin-bottom: 0.5rem;">API Key Integration</h4>
+                                <div class="flex gap-2">
+                                    <input type="text" id="dash-overview-api" value="Loading..." readonly style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--secondary); border-radius: 4px; padding: 0.4rem; text-align: center; font-family: monospace; font-size: 0.8rem;">
+                                </div>
                             </div>
-                            <div class="glass p-3 rounded text-center">
-                                <h4 class="text-muted">System Status</h4>
-                                <h2 style="color: var(--success);">ONLINE</h2>
+                            <div class="glass p-3 rounded text-center" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                <button class="btn btn-outline w-100" style="border-color: var(--primary); color: white;" onclick="navigator.clipboard.writeText(document.getElementById('dash-overview-api').value)">Copy API Key</button>
                             </div>
                         </div>
 
@@ -454,7 +462,56 @@ curl -X POST "http://localhost:8000/api/verify" \
                             </div>
                             <button class="btn btn-outline w-100 mt-5" onclick="showPage('pricing')">Upgrade Matrix</button>
                         </div>
+                        
+                        <div class="glass p-4 rounded mt-4" style="max-width: 600px;">
+                            <h3>Partner License Link <span class="badge-pro" style="font-size:0.6rem; vertical-align: middle;">FREE FEATURE</span></h3>
+                            <p class="text-muted mt-2" style="font-size:0.9rem;">Connect a friend's Premium API Key to unlock Bulk features and share their daily processing limits.</p>
+                            <div class="flex gap-2 mt-3">
+                                <input type="text" id="partner-link-input" class="input-modern w-100" placeholder="Paste PRO API Key here (or leave empty to unlink)">
+                                <button class="btn btn-primary" id="btn-link-partner" onclick="linkPartnerLicense()" style="white-space:nowrap;">Link Account</button>
+                            </div>
+                            <p id="partner-link-status" class="mt-2" style="font-size:0.9rem; font-weight:bold;"></p>
+                        </div>
                     </div>
+                    
+                    <!-- PARTNER SETTINGS PANEL -->
+                    <div id="tab-partner" class="dash-tab" style="display:none">
+                        <h2>Shared API Licenses</h2>
+                        <p class="text-muted mt-2">Manage users who have requested to link to your API key.</p>
+                        
+                        <div class="glass p-4 rounded mt-4" style="overflow-x: auto;">
+                            <h3>Pending Link Requests</h3>
+                            <table class="w-100 mt-3" style="text-align: left; border-collapse: collapse; min-width: 600px;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border-color);">
+                                        <th class="p-2 text-muted">User Email</th>
+                                        <th class="p-2 text-muted">Request Date</th>
+                                        <th class="p-2 text-muted">Daily Limit To Grant</th>
+                                        <th class="p-2 text-muted">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="partner-requests-body">
+                                    <tr><td colspan="4" class="text-muted text-center p-3">No pending requests.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="glass p-4 rounded mt-4" style="overflow-x: auto;">
+                            <h3>Approved Users</h3>
+                            <table class="w-100 mt-3" style="text-align: left; border-collapse: collapse; min-width: 600px;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border-color);">
+                                        <th class="p-2 text-muted">User Email</th>
+                                        <th class="p-2 text-muted">Daily Limit</th>
+                                        <th class="p-2 text-muted">Used Today</th>
+                                        <th class="p-2 text-muted">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="partner-users-body">
+                                    <tr><td colspan="4" class="text-muted text-center p-3">No active linked users.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     
                     <!-- MY FILES PANEL -->
                     <div id="tab-files" class="dash-tab" style="display:none">
@@ -547,6 +604,6 @@ curl -X POST "http://localhost:8000/api/verify" \
 
     <!-- Chart JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=2.0.2"></script>
 </body>
 </html>

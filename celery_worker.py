@@ -1,4 +1,5 @@
 import asyncio
+import os
 from celery import Celery
 from core.verifier import verify_email
 from celery.utils.log import get_task_logger
@@ -6,10 +7,11 @@ from celery.utils.log import get_task_logger
 logger = get_task_logger(__name__)
 
 # Configure Celery with Redis broker and backend
+redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 celery_app = Celery(
     "email_verifier",
-    broker="redis://127.0.0.1:6379/0",
-    backend="redis://127.0.0.1:6379/0"
+    broker=redis_url,
+    backend=redis_url
 )
 
 # High Concurrency & Stability Tuning

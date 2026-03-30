@@ -242,7 +242,12 @@ async function initDash() {
         document.getElementById('dash-credits-huge').textContent = currentUser.credits.toLocaleString();
         document.getElementById('dash-plan-huge').textContent = currentUser.plan;
         
-        document.getElementById('dash-api-key').value = currentUser.api_key;
+        if(document.getElementById('dash-api-key')) {
+            document.getElementById('dash-api-key').value = currentUser.api_key;
+        }
+        if(document.getElementById('dash-overview-api')) {
+            document.getElementById('dash-overview-api').value = currentUser.api_key;
+        }
         document.getElementById('billing-tier').textContent = currentUser.plan;
         document.getElementById('billing-credits').textContent = currentUser.credits.toLocaleString();
 
@@ -261,6 +266,22 @@ async function initDash() {
             bulkUnlocked.classList.remove('hidden');
             bulkBadge.textContent = "UNLOCKED";
             bulkBadge.style.background = "var(--success)";
+        }
+        
+        // Partner UI Update
+        const statusEl = document.getElementById('partner-link-status');
+        if (statusEl) {
+            if (currentUser.partner_status === 'pending') {
+                statusEl.textContent = "Your link request is Pending partner approval...";
+                statusEl.style.color = "var(--warning)";
+                statusEl.style.display = 'block';
+            } else if (currentUser.partner_status === 'approved') {
+                statusEl.innerHTML = `Active! Sharing Partner's limit.<br>Used: ${currentUser.partner_credits_used_today || 0} / ${currentUser.partner_daily_limit} today`;
+                statusEl.style.color = "var(--success)";
+                statusEl.style.display = 'block';
+            } else {
+                statusEl.style.display = 'none';
+            }
         }
         
         initChart();
@@ -392,6 +413,11 @@ if(authSingleBtn) {
                 ${blockNote}
             `;
             resBox.classList.remove('hidden');
+            
+            // Update realtime chart
+            if(typeof window.updateLiveStats === 'function') {
+                window.updateLiveStats(data.status);
+            }
 
             // Append to table
             const rxTable = document.getElementById('recent-verifications-table');
@@ -402,7 +428,13 @@ if(authSingleBtn) {
                     <span class="badge-${data.status.replace(' ', '').toLowerCase()}" style="font-size:0.7rem;">${data.status}</span>
                 </div>
             `;
-            rxTable.prepend(h);
+            if (rxTable) {
+                rxTable.prepend(h);
+            }
+            const rxHistory = document.getElementById('history-verifications-table');
+            if (rxHistory) {
+                rxHistory.prepend(h.cloneNode(true));
+            }
 
         } catch(err) {
             alert(err.message);
@@ -426,9 +458,9 @@ function initChart() {
         data: {
             labels: ['Accepted', 'Rejected', 'Catch-All', 'Greylisted', 'Timeout'],
             datasets: [{
-                data: [45, 25, 10, 10, 10],
+                data: [0, 0, 0, 0, 0],
                 backgroundColor: [
-                    '#00e676', '#ff3366', '#7b2fbe', '#a0a0b0', '#ffb300'
+                    '#00f260', '#ff3366', '#00e676', '#888899', '#ffb300'
                 ],
                 borderWidth: 0
             }]
@@ -437,7 +469,7 @@ function initChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'right', labels: { color: '#f8f9fa' } }
+                legend: { position: 'right', labels: { color: '#f8f9fa', font: { family: 'Outfit' } } }
             }
         }
     });
@@ -746,6 +778,15 @@ function updateLiveStats(status) {
     const el = document.getElementById(id);
     if (el) el.textContent = parseInt(el.textContent || 0) + 1;
   }
+  
+  if (mockChartInstance) {
+      const idxMap = {'ACCEPTED':0, 'REJECTED':1, 'CATCH-ALL':2, 'GREYLISTED':3, 'TIMEOUT':4};
+      const cIdx = idxMap[status.toUpperCase()];
+      if (cIdx !== undefined) {
+          mockChartInstance.data.datasets[0].data[cIdx]++;
+          mockChartInstance.update();
+      }
+  }
 }
 
 window.startBulkVerify = startBulkVerify;
@@ -962,8 +1003,144 @@ const originalInitDash = initDash;
 initDash = async function() {
     await originalInitDash();
     await loadUserFiles();
+    await loadPartnerDashboard();
     showDashTab('overview');
 };
+
+async function loadPartnerDashboard() {
+    if(!authToken) return;
+    try {
+        const [reqP, reqA] = await Promise.all([
+            fetch('/api/partner/requests', { headers: {'Authorization': `Bearer ${authToken}`} }),
+            fetch('/api/partner/users', { headers: {'Authorization': `Bearer ${authToken}`} })
+        ]);
+        
+        if(reqP.ok && reqA.ok) {
+            const pending = await reqP.json();
+            const approved = await reqA.json();
+            
+            const tbodyP = document.getElementById('partner-requests-body');
+            if (tbodyP) {
+                if (pending.length === 0) {
+                    tbodyP.innerHTML = '<tr><td colspan="4" class="text-muted text-center p-3">No pending requests.</td></tr>';
+                } else {
+                    tbodyP.innerHTML = '';
+                    pending.forEach(u => {
+                        tbodyP.innerHTML += `
+                            <tr>
+                                <td>${u.email}</td>
+                                <td>${new Date(u.date).toLocaleDateString()}</td>
+                                <td><input type="number" id="limit_${u.id}" class="input-modern" value="1000" style="width:100px; padding:0.2rem; background:rgba(0,0,0,0.5); border:1px solid var(--border-color); color:white;" min="1"></td>
+                                <td>
+                                    <button class="btn btn-primary" style="padding: 0.2rem 0.6rem; font-size: 0.8rem;" onclick="approvePartner(${u.id}, true)">Approve</button>
+                                    <button class="btn btn-outline" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; border-color: var(--danger); color: var(--danger);" onclick="approvePartner(${u.id}, false)">Reject</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+            }
+
+            const tbodyA = document.getElementById('partner-users-body');
+            if (tbodyA) {
+                if (approved.length === 0) {
+                    tbodyA.innerHTML = '<tr><td colspan="4" class="text-muted text-center p-3">No active linked users.</td></tr>';
+                } else {
+                    tbodyA.innerHTML = '';
+                    approved.forEach(u => {
+                        tbodyA.innerHTML += `
+                            <tr>
+                                <td>${u.email}</td>
+                                <td>${u.daily_limit}</td>
+                                <td>${u.used_today}</td>
+                                <td>
+                                    <button class="btn btn-outline" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; border-color: var(--danger); color: var(--danger);" onclick="revokePartner(${u.id})">Revoke</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+            }
+        }
+    } catch(err) {
+        console.error("Partner dash error: ", err);
+    }
+}
+
+window.approvePartner = async function(userId, isApprove) {
+    const limitInput = document.getElementById(`limit_${userId}`);
+    const limit = limitInput ? parseInt(limitInput.value) : 1000;
+    
+    if (isApprove && isNaN(limit)) {
+        alert("Invalid daily limit");
+        return;
+    }
+
+    try {
+        const endpoint = isApprove ? '/api/partner/approve' : '/api/partner/reject';
+        const payload = isApprove ? { user_id: userId, daily_limit: limit } : { user_id: userId };
+        
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("Action failed");
+        loadPartnerDashboard();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.revokePartner = async function(userId) {
+    if (!confirm("Are you sure you want to revoke this user's license access?")) return;
+    try {
+        const res = await fetch(`/api/partner/remove/${userId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        if (!res.ok) throw new Error("Revoke failed");
+        loadPartnerDashboard();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.linkPartnerLicense = async function() {
+    const pk = document.getElementById('partner-link-input').value;
+    const btn = document.getElementById('btn-link-partner');
+    try {
+        if(btn) btn.textContent = "Linking...";
+        const res = await fetch('/api/link-key', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ partner_key: pk })
+        });
+        
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.detail || "Failed to link partner key");
+        
+        btn.textContent = "Request Sent!";
+        btn.style.background = "var(--success)";
+        setTimeout(() => {
+            btn.textContent = "Link Account";
+            btn.style.background = "";
+            initDash(); // Reload to show new status
+        }, 2000);
+    } catch(err) {
+        alert(err.message);
+    } finally {
+        if(btn) btn.textContent = "Link Account";
+    }
+}
 
 // Auto init dashboard if user token
 initDash();

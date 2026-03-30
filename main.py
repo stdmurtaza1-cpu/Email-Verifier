@@ -10,6 +10,7 @@ from routes.api import router as api_router
 from routes.auth import router as auth_router
 from routes.admin import router as admin_router
 from routes.storage import router as storage_router
+from routes.partner import router as partner_router
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["10000/minute"])
 
@@ -40,6 +41,7 @@ async def serve_admin_panel():
 app.include_router(auth_router, prefix="/api")
 app.include_router(admin_router, prefix="/admin")
 app.include_router(storage_router, prefix="/api/storage")
+app.include_router(partner_router, prefix="/api/partner")
 
 # Ensure static and upload dirs exist (jobs dir for bulk 1M results)
 os.makedirs("static", exist_ok=True)
@@ -53,8 +55,9 @@ os.makedirs(os.path.join("uploads", "jobs"), exist_ok=True)
 class SPAStaticFiles(StaticFiles):
     async def get_response(self, path: str, request: Request) -> FileResponse:
         if path.startswith("api/") or path.startswith("admin/"):
-            # Let FastAPI handle API and admin routes
-            return await super().get_response(path, request)
+            # Let FastAPI handle API and admin routes. If they reached here, they are not found.
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="API route not found")
         
         # For all other paths, try to serve the requested file.
         # If not found, serve index.html for SPA routing.

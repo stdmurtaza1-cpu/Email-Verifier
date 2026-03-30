@@ -15,10 +15,39 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from celery.result import AsyncResult, GroupResult
 from celery import group
+from datetime import date
 
 limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
+
+def check_and_deduct_credits(current_user: User, amount: int) -> None:
+    if hasattr(current_user, 'is_linked_session'):
+        child = current_user.child_user_obj
+        today = date.today()
+        if child.partner_limit_reset_date != today:
+            child.partner_credits_used_today = 0
+            child.partner_limit_reset_date = today
+            
+        if child.partner_credits_used_today + amount > child.partner_daily_limit:
+            rem = max(0, child.partner_daily_limit - child.partner_credits_used_today)
+            raise HTTPException(status_code=403, detail=f"Partner daily limit reached. You can use {rem} more today.")
+            
+        if current_user.credits < amount:
+            raise HTTPException(status_code=403, detail="Partner has insufficient credits.")
+            
+        child.partner_credits_used_today += amount
+        current_user.credits -= amount
+    else:
+        if current_user.credits < amount:
+            raise HTTPException(status_code=403, detail=f"Insufficient credits. You have {current_user.credits} but need {amount}.")
+        current_user.credits -= amount
+
+def get_display_credits(current_user: User) -> int:
+    if hasattr(current_user, 'is_linked_session'):
+        child = current_user.child_user_obj
+        return max(0, child.partner_daily_limit - child.partner_credits_used_today)
+    return current_user.credits
 
 # --- Bulk (1M+) job config ---
 BULK_MAX_EMAILS = 1_000_000
@@ -97,15 +126,12 @@ async def verify_free(request: Request, payload: VerifyRequest):
 
 @router.post("/verify")
 async def verify_single(request: Request, payload: VerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.credits <= 0:
-        raise HTTPException(status_code=403, detail="No credits remaining")
+    check_and_deduct_credits(current_user, 1)
+    db.commit()
 
     result = await verify_email(payload.email)
     
-    current_user.credits -= 1
-    db.commit()
-    
-    result["credits_remaining"] = current_user.credits
+    result["credits_remaining"] = get_display_credits(current_user)
     return result
 
 @router.post("/bulk-verify")
@@ -132,8 +158,8 @@ async def verify_bulk(request: Request, file: Optional[UploadFile] = File(None),
     if len(emails) > 2000:
         raise HTTPException(status_code=400, detail="For more than 2000 emails use POST /api/bulk-verify-large with a file. Max 1 million.")
         
-    if current_user.credits < len(emails):
-        raise HTTPException(status_code=403, detail=f"Insufficient credits. You have {current_user.credits} but need {len(emails)}.")
+    check_and_deduct_credits(current_user, len(emails))
+    db.commit()
         
     # Process concurrently using the custom engine with connection limits
     sem = asyncio.Semaphore(50)
@@ -145,14 +171,11 @@ async def verify_bulk(request: Request, file: Optional[UploadFile] = File(None),
     tasks = [bounded_verify(email) for email in emails]
     results = await asyncio.gather(*tasks)
     
-    current_user.credits -= len(emails)
-    db.commit()
-    
     return {
         "results": results,
         "total": len(results),
         "credits_used": len(results),
-        "credits_remaining": current_user.credits
+        "credits_remaining": get_display_credits(current_user)
     }
 
 
@@ -187,8 +210,9 @@ async def verify_bulk_large(
 
     if not emails:
         raise HTTPException(status_code=400, detail="No valid emails found.")
-    if current_user.credits < len(emails):
-        raise HTTPException(status_code=403, detail=f"Insufficient credits. Need {len(emails)}, you have {current_user.credits}.")
+        
+    check_and_deduct_credits(current_user, len(emails))
+    db.commit()
 
     job_id = str(uuid.uuid4())
     _ensure_jobs_dir()
@@ -198,17 +222,15 @@ async def verify_bulk_large(
         "processed": 0,
         "results_path": None,
         "error": None,
-        "user_id": current_user.id,
+        "user_id": getattr(current_user, 'original_id', current_user.id),
     }
-    current_user.credits -= len(emails)
-    db.commit()
 
     background_tasks.add_task(_process_bulk_job, job_id, emails)
     return {
         "job_id": job_id,
         "total": len(emails),
         "message": "Bulk verification started. Use GET /api/bulk-verify/status/{job_id} to poll progress, then GET /api/bulk-verify/download/{job_id} to download CSV.",
-        "credits_remaining": current_user.credits,
+        "credits_remaining": get_display_credits(current_user),
     }
 
 
@@ -217,7 +239,8 @@ async def bulk_job_status(job_id: str, current_user: User = Depends(get_current_
     job = _bulk_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
-    if job.get("user_id") != current_user.id:
+    true_user_id = getattr(current_user, 'original_id', current_user.id)
+    if job.get("user_id") != true_user_id:
         raise HTTPException(status_code=403, detail="Not your job.")
     return {
         "job_id": job_id,
@@ -235,7 +258,8 @@ async def bulk_job_download(job_id: str, current_user: User = Depends(get_curren
     job = _bulk_jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
-    if job.get("user_id") != current_user.id:
+    true_user_id = getattr(current_user, 'original_id', current_user.id)
+    if job.get("user_id") != true_user_id:
         raise HTTPException(status_code=403, detail="Not your job.")
     if job["status"] != "completed":
         raise HTTPException(status_code=400, detail="Job not ready for download. Check status first.")
@@ -250,30 +274,23 @@ class BatchVerifyRequest(BaseModel):
 
 @router.post("/verify-batch")
 async def verify_batch(request: Request, payload: BatchVerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.credits < len(payload.emails):
-        raise HTTPException(status_code=403, detail="Insufficient credits")
-
     # Limit batch size to 5 as requested
     emails = payload.emails[:5]
+    
+    check_and_deduct_credits(current_user, len(emails))
+    db.commit()
     
     tasks = [verify_email(email) for email in emails]
     results = await asyncio.gather(*tasks)
     
-    current_user.credits -= len(results)
-    db.commit()
-    
     return {
         "results": results,
-        "credits_remaining": current_user.credits
+        "credits_remaining": get_display_credits(current_user)
     }
 
 @router.post("/verify-batch-async")
 async def verify_batch_async(request: Request, payload: BatchVerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.credits < len(payload.emails):
-        raise HTTPException(status_code=403, detail="Insufficient credits")
-
-    # Deduct credits immediately
-    current_user.credits -= len(payload.emails)
+    check_and_deduct_credits(current_user, len(payload.emails))
     db.commit()
 
     # Dispatch to Celery Queue with Chunking
@@ -296,6 +313,8 @@ async def verify_batch_async(request: Request, payload: BatchVerifyRequest, curr
     except Exception as e:
         # Refund credits if celery fails to dispatch
         current_user.credits += len(payload.emails)
+        if hasattr(current_user, "is_linked_session"):
+            current_user.child_user_obj.partner_credits_used_today -= len(payload.emails)
         db.commit()
         raise HTTPException(status_code=500, detail=f"Failed to dispatch to Celery. Ensure Redis is running: {str(e)}")
 
@@ -304,7 +323,7 @@ async def verify_batch_async(request: Request, payload: BatchVerifyRequest, curr
         "message": "Batch processing started in background.",
         "total_queued": len(payload.emails),
         "chunks": len(chunks),
-        "credits_remaining": current_user.credits
+        "credits_remaining": get_display_credits(current_user)
     }
 
 @router.get("/task-status/{task_id}")

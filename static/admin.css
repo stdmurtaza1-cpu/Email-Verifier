@@ -1,13 +1,13 @@
 :root {
-    --bg-dark: #0a0a0f;
+    --bg-dark: #050505;
     --card-bg: rgba(20, 20, 25, 0.7);
-    --primary: #7B2FBE;
-    --primary-glow: rgba(123, 47, 190, 0.5);
+    --primary: #00f260;
+    --primary-glow: rgba(0, 242, 96, 0.5);
     --danger: #ff3366;
-    --success: #00e676;
+    --success: #00f260;
     --warning: #ffb300;
     --text-main: #f8f9fa;
-    --text-muted: #a0a0b0;
+    --text-muted: #888899;
     --border-color: rgba(255, 255, 255, 0.1);
 }
 

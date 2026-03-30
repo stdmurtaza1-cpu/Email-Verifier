@@ -268,7 +268,7 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
             
             # Use chunks of available IPs. Shorter timeout first, then longer on retry
             for attempt, source_ip in enumerate(available_ips[:3]):
-                timeout_val = 20 if attempt == 0 else 25
+                timeout_val = 8 if attempt == 0 else 12
                 
                 if attempt > 0:
                     # Exponential backoff mechanism
@@ -521,7 +521,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
         logger.debug(f"Initiating SMTP checks for {email}")
         smtp_status, smtp_details = await asyncio.wait_for(
             smtp_verify(email, mx_hosts),
-            timeout=30.0
+            timeout=15.0
         )
     except asyncio.TimeoutError:
         logger.debug(f"Overall SMTP verification timed out for {email}")

@@ -1,42 +1,38 @@
+/* ADMIN.JS - PREMIUM REWRITE */
 const DOM = {
     authView: document.getElementById('admin-auth-view'),
     dashView: document.getElementById('admin-dashboard-view'),
-    
-    // Login Elements
     userInp: document.getElementById('admin-user-input'),
     passInp: document.getElementById('admin-pass-input'),
     loginBtn: document.getElementById('admin-login-btn'),
     btnText: document.getElementById('admin-btn-text'),
     loader: document.getElementById('admin-loader'),
     errorMsg: document.getElementById('admin-error-msg'),
-    
-    // Nav
     navBtns: document.querySelectorAll('.nav-btn:not(.logout)'),
     panels: document.querySelectorAll('.admin-panel'),
     logoutBtn: document.getElementById('admin-logout-btn'),
-
-    // Stats
     totalUsers: document.getElementById('stats-total-users'),
     verifsToday: document.getElementById('stats-verifs-today'),
     verifsMonth: document.getElementById('stats-verifs-month'),
     verifsAll: document.getElementById('stats-verifs-all'),
     statsChart: document.getElementById('admin-stats-chart'),
-    
-    // Tables
     usersBody: document.getElementById('admin-users-body'),
     searchInp: document.getElementById('user-search'),
-    keysBody: document.getElementById('admin-keys-body')
+    keysBody: document.getElementById('admin-keys-body'),
+    userModal: document.getElementById('user-modal-overlay')
 };
 
 let adminToken = localStorage.getItem('admin_token');
 let allUsers = [];
 let allKeys = [];
 let chartInstance = null;
+let currentViewUserEmail = null;
+let statsInterval = null;
 
-// Init
 async function init() {
     if (adminToken) {
         await loadDashboard();
+        startStatsPolling();
     } else {
         showAuth();
     }
@@ -45,6 +41,7 @@ async function init() {
 function showAuth() {
     DOM.dashView.classList.add('hidden');
     DOM.authView.classList.remove('hidden');
+    if(statsInterval) clearInterval(statsInterval);
 }
 
 function showDash() {
@@ -52,12 +49,10 @@ function showDash() {
     DOM.dashView.classList.remove('hidden');
 }
 
-// Navigation Logic
 DOM.navBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         DOM.navBtns.forEach(b => b.classList.remove('active'));
         DOM.panels.forEach(p => p.classList.add('hidden'));
-        
         btn.classList.add('active');
         document.getElementById(btn.dataset.target).classList.remove('hidden');
     });
@@ -69,11 +64,9 @@ DOM.logoutBtn.addEventListener('click', () => {
     showAuth();
 });
 
-// Authentication
 DOM.loginBtn.addEventListener('click', async () => {
     const username = DOM.userInp.value;
     const password = DOM.passInp.value;
-    
     if(!username || !password) return;
     
     DOM.btnText.classList.add('hidden');
@@ -86,18 +79,13 @@ DOM.loginBtn.addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
         });
-        
         const data = await res.json();
-        
-        if (!res.ok) {
-            if (res.status === 429) throw new Error("Too many attempts. Locked for 15 minutes.");
-            throw new Error(data.detail || "Invalid credentials.");
-        }
+        if (!res.ok) throw new Error(data.detail || "Invalid credentials.");
         
         adminToken = data.access_token;
         localStorage.setItem('admin_token', adminToken);
         await loadDashboard();
-        
+        startStatsPolling();
     } catch (err) {
         DOM.errorMsg.textContent = err.message;
         DOM.errorMsg.classList.remove('hidden');
@@ -114,46 +102,44 @@ function getHeaders() {
     };
 }
 
-async function loadDashboard() {
+async function fetchStats() {
     try {
-        // Fetch Stats
         const statsRes = await fetch('/admin/stats', { headers: getHeaders() });
-        if(statsRes.status === 401 || statsRes.status === 403) throw new Error("Unauthorized");
-        const stats = await statsRes.json().catch(() => ({}));
+        if(!statsRes.ok) return;
+        const stats = await statsRes.json();
         
         DOM.totalUsers.textContent = (stats.total_users || 0).toLocaleString();
         DOM.verifsToday.textContent = (stats.verifications_today || 0).toLocaleString();
         DOM.verifsMonth.textContent = (stats.verifications_month || 0).toLocaleString();
         DOM.verifsAll.textContent = (stats.verifications_all_time || 0).toLocaleString();
         
-        if (stats.chart_data) {
-            renderChart(stats.chart_data.labels || [], stats.chart_data.values || []);
-        } else {
-            // Mock Data if API missing
-            const mockLabels = Array.from({length: 30}, (_, i) => `Day ${i+1}`);
-            const mockValues = Array.from({length: 30}, () => Math.floor(Math.random() * 5000));
-            renderChart(mockLabels, mockValues);
+        if (stats.chart_data && stats.chart_data.labels) {
+            renderChart(stats.chart_data.labels, stats.chart_data.values);
         }
+    } catch(e) {}
+}
+
+function startStatsPolling() {
+    if(statsInterval) clearInterval(statsInterval);
+    statsInterval = setInterval(fetchStats, 10000);
+}
+
+async function loadDashboard() {
+    try {
+        await fetchStats();
         
-        // Fetch Users
         const usersRes = await fetch('/admin/users', { headers: getHeaders() });
-        const usersData = await usersRes.json().catch(() => ({users: []}));
+        const usersData = await usersRes.json();
         allUsers = usersData.users || [];
         renderUsersTable(allUsers);
         
-        // Fetch API Keys
         const keysRes = await fetch('/admin/keys', { headers: getHeaders() });
-        const keysData = await keysRes.json().catch(() => ({keys: []}));
+        const keysData = await keysRes.json();
         allKeys = keysData.keys || [];
-        if (allKeys.length === 0) {
-            // Mock key if empty
-            allKeys = [{ id: 1, email: 'user@example.com', api_key: 'vn_live_xxxxxxxxxxxxxxxx', is_active: true }];
-        }
         renderKeysTable(allKeys);
         
         showDash();
     } catch (err) {
-        console.error(err);
         localStorage.removeItem('admin_token');
         adminToken = null;
         showAuth();
@@ -170,8 +156,8 @@ function renderChart(labels, data) {
             datasets: [{
                 label: 'Daily Verifications',
                 data: data,
-                borderColor: '#00d4ff',
-                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                borderColor: '#00f260',
+                backgroundColor: 'rgba(0, 242, 96, 0.1)',
                 borderWidth: 2,
                 fill: true,
                 tension: 0.4
@@ -180,9 +166,8 @@ function renderChart(labels, data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
+            animation: { duration: 0 },
+            plugins: { legend: { display: false } },
             scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
                 x: { grid: { display: false } }
@@ -196,38 +181,19 @@ function renderUsersTable(usersArray) {
     usersArray.forEach(u => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
-        
-        const isAct = u.is_active !== false; // default true
+        const isAct = u.is_active !== false;
         
         tr.innerHTML = `
             <td style="padding: 1rem; font-weight: 600;">${u.email}</td>
             <td style="padding: 1rem;"><span class="badge ${u.plan}" style="text-transform:uppercase;">${u.plan}</span></td>
             <td style="padding: 1rem;">${(u.credits || 0).toLocaleString()}</td>
-            <td style="padding: 1rem; color: var(--text-muted);">${u.joined_date ? u.joined_date.split('T')[0] : '-'}</td>
             <td style="padding: 1rem;">
                 <span style="color: ${isAct ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
-                    ${isAct ? 'Active' : 'Inactive'}
+                    ${isAct ? 'Active' : 'Suspended'}
                 </span>
             </td>
-            <td style="padding: 1rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; min-width: 350px;">
-                <select id="plan-${u.id}" style="padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.5); color: white;">
-                    <option value="free" ${u.plan==='free'?'selected':''}>Free</option>
-                    <option value="starter" ${u.plan==='starter'?'selected':''}>Starter</option>
-                    <option value="pro" ${u.plan==='pro'?'selected':''}>Pro</option>
-                    <option value="enterprise" ${u.plan==='enterprise'?'selected':''}>Enterprise</option>
-                </select>
-                <button class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="updatePlan('${u.email}', ${u.id})">Update Plan</button>
-                
-                <div style="border-left: 1px solid var(--border-color); height: 20px; margin: 0 0.5rem;"></div>
-                
-                <input type="number" id="credits-${u.id}" placeholder="Add Credits" style="width: 80px; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.5); color: white;">
-                <button class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; color: var(--success); border-color: var(--success);" onclick="addCredits('${u.email}', ${u.id})">Add</button>
-                
-                <div style="border-left: 1px solid var(--border-color); height: 20px; margin: 0 0.5rem;"></div>
-                
-                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: ${isAct ? 'var(--warning)' : 'var(--success)'}; color: white;" onclick="toggleUserStatus('${u.email}', ${!isAct})">
-                    ${isAct ? 'Deactivate' : 'Activate'}
-                </button>
+            <td style="padding: 1rem;">
+                <button class="btn" style="background: var(--primary); padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; color: #000;" onclick="openUserModal('${u.email}')">View Details</button>
             </td>
         `;
         DOM.usersBody.appendChild(tr);
@@ -239,7 +205,6 @@ function renderKeysTable(keysArray) {
     keysArray.forEach(k => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
-        
         tr.innerHTML = `
             <td style="padding: 1rem; font-weight: 600;">${k.email}</td>
             <td style="padding: 1rem; font-family: monospace; color: var(--secondary);">${k.api_key}</td>
@@ -249,7 +214,7 @@ function renderKeysTable(keysArray) {
                 </span>
             </td>
             <td style="padding: 1rem; display: flex; gap: 0.5rem;">
-                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: ${k.is_active ? 'var(--warning)' : 'var(--success)'}; color: white;" onclick="toggleKeyStatus(${k.id}, ${!k.is_active})">
+                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: ${k.is_active ? 'var(--warning)' : 'var(--success)'}; color: #000;" onclick="toggleKeyStatus(${k.id}, ${!k.is_active})">
                     ${k.is_active ? 'Disable' : 'Enable'}
                 </button>
                 <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--danger); color: white;" onclick="revokeKey(${k.id})">Revoke</button>
@@ -259,51 +224,96 @@ function renderKeysTable(keysArray) {
     });
 }
 
-// Search Filter
 DOM.searchInp.addEventListener('input', (e) => {
     const term = e.target.value.toLowerCase();
     const filtered = allUsers.filter(u => u.email.toLowerCase().includes(term));
     renderUsersTable(filtered);
 });
 
-// Admin Actions Hooks
-window.updatePlan = async function(email, id) {
-    const plan = document.getElementById(`plan-${id}`).value;
+// Modal Logic
+window.openUserModal = function(email) {
+    const user = allUsers.find(u => u.email === email);
+    if(!user) return;
+    currentViewUserEmail = email;
+    
+    document.getElementById('modal-email').textContent = user.email;
+    document.getElementById('modal-credits').textContent = (user.credits || 0).toLocaleString();
+    
+    const statBadge = document.getElementById('modal-status-badge');
+    const toggleBtn = document.getElementById('modal-toggle-btn');
+    if(user.is_active !== false) {
+        statBadge.textContent = "Active";
+        statBadge.style.background = "var(--success)";
+        toggleBtn.textContent = "Suspend Account";
+        toggleBtn.style.background = "var(--danger)";
+    } else {
+        statBadge.textContent = "Suspended";
+        statBadge.style.background = "var(--danger)";
+        toggleBtn.textContent = "Re-Activate Account";
+        toggleBtn.style.background = "var(--success)";
+    }
+    
+    const planBadge = document.getElementById('modal-plan-badge');
+    planBadge.textContent = user.plan;
+    planBadge.className = "badge " + user.plan;
+    document.getElementById('modal-plan-select').value = user.plan;
+    
+    document.getElementById('modal-api').textContent = user.api_key ? (user.api_key.substring(0, 15) + "...") : "None";
+    
+    DOM.userModal.classList.remove('hidden');
+};
+
+window.adminUpdatePlan = async function() {
+    if(!currentViewUserEmail) return;
+    const plan = document.getElementById('modal-plan-select').value;
     try {
         const res = await fetch('/admin/upgrade-plan', {
             method: 'POST',
             headers: getHeaders(),
-            body: JSON.stringify({ user_email: email, plan: plan })
+            body: JSON.stringify({ user_email: currentViewUserEmail, plan: plan })
         });
-        if(!res.ok) throw new Error("Update failed");
-        alert(`Plan updated to ${plan.toUpperCase()}`);
+        if(!res.ok) {
+            const errBody = await res.text();
+            throw new Error(`Update failed (${res.status}): ${errBody}`);
+        }
+        alert("Plan updated!");
+        DOM.userModal.classList.add('hidden');
         loadDashboard();
     } catch(e) { alert(e.message); }
 };
 
-window.addCredits = async function(email, id) {
-    const amt = parseInt(document.getElementById(`credits-${id}`).value);
+window.adminAddCredits = async function() {
+    if(!currentViewUserEmail) return;
+    const amt = parseInt(document.getElementById('modal-credits-input').value);
     if (!amt || amt <= 0) return;
     try {
         const res = await fetch('/admin/add-credits', {
             method: 'POST',
             headers: getHeaders(),
-            body: JSON.stringify({ user_email: email, credits_to_add: amt })
+            body: JSON.stringify({ user_email: currentViewUserEmail, credits_to_add: amt })
         });
-        if(!res.ok) throw new Error("Credits update failed");
-        alert(`Added ${amt} credits`);
+        if(!res.ok) {
+            const errBody = await res.text();
+            throw new Error(`Credits update failed (${res.status}): ${errBody}`);
+        }
+        alert("Quota added!");
+        DOM.userModal.classList.add('hidden');
         loadDashboard();
     } catch(e) { alert(e.message); }
 };
 
-window.toggleUserStatus = async function(email, activeState) {
+window.adminToggleUser = async function() {
+    if(!currentViewUserEmail) return;
+    const user = allUsers.find(u => u.email === currentViewUserEmail);
+    const newState = user.is_active === false ? true : false;
     try {
         const res = await fetch('/admin/toggle-user', {
             method: 'POST',
             headers: getHeaders(),
-            body: JSON.stringify({ user_email: email, is_active: activeState })
+            body: JSON.stringify({ user_email: currentViewUserEmail, is_active: newState })
         });
-        if(!res.ok) throw new Error("Status toggle failed");
+        if(!res.ok) throw new Error("Status update failed");
+        DOM.userModal.classList.add('hidden');
         loadDashboard();
     } catch(e) { alert(e.message); }
 };

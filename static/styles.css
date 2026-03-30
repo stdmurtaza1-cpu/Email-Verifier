@@ -1,15 +1,15 @@
 :root {
-    --bg-dark: #0a0a0f;
-    --nav-bg: rgba(10, 10, 15, 0.8);
-    --card-bg: rgba(255, 255, 255, 0.03);
-    --primary: #7B2FBE;
-    --primary-glow: rgba(123, 47, 190, 0.5);
-    --secondary: #00D4FF;
+    --bg-dark: #050505;
+    --nav-bg: rgba(5, 5, 5, 0.85);
+    --card-bg: rgba(255, 255, 255, 0.02);
+    --primary: #00f260;
+    --primary-glow: rgba(0, 242, 96, 0.5);
+    --secondary: #00e676;
     --danger: #ff3366;
-    --success: #00e676;
+    --success: #00f260;
     --warning: #ffb300;
     --text-main: #f8f9fa;
-    --text-muted: #a0a0b0;
+    --text-muted: #888899;
     --border-color: rgba(255, 255, 255, 0.08);
 }
 
@@ -22,15 +22,33 @@
 body {
     background-color: var(--bg-dark);
     color: var(--text-main);
-    font-family: 'Inter', sans-serif;
+    font-family: 'Outfit', sans-serif;
     line-height: 1.6;
     overflow-x: hidden;
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Space Grotesk', sans-serif;
     font-weight: 700;
 }
+
+/* Animated Background Orbs */
+.bg-orbs {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    overflow: hidden; z-index: -1;
+    pointer-events: none;
+}
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.15;
+    animation: drift 20s infinite alternate ease-in-out;
+}
+.orb-1 { width: 400px; height: 400px; background: var(--primary); top: -100px; left: -100px; animation-delay: 0s; }
+.orb-2 { width: 500px; height: 500px; background: rgba(0, 200, 100, 0.8); bottom: -200px; right: -100px; animation-delay: -5s; }
+@keyframes drift { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(150px, 100px) scale(1.2); } }
 
 a { text-decoration: none; color: inherit; }
 .hidden { display: none !important; }
