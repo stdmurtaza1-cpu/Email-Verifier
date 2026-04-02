@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
-from database import get_db, User, Subscription
+from sqlalchemy import func
+from database import get_db, User, Subscription, EmailResult
 from middleware.auth import get_current_admin
 from pydantic import BaseModel
 import os
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import uuid
-import random
 
 router = APIRouter()
 
@@ -95,9 +95,9 @@ async def get_all_users(db: Session = Depends(get_db), current_admin: dict = Dep
             "email": u.email,
             "plan": u.plan,
             "credits": u.credits,
-            "joined_date": u.created_at.isoformat(),
+            "joined_date": u.created_at.isoformat() if getattr(u, "created_at", None) else None,
             "is_active": getattr(u, "is_active", True),
-            "api_key": u.api_key
+            "api_key": getattr(u, "api_key", None)
         })
     return {"users": user_list}
 
@@ -126,29 +126,66 @@ async def revoke_key(data: RevokeKeyDTO, db: Session = Depends(get_db), current_
 
 @router.get("/stats")
 async def get_admin_stats(db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):
-    users_count = db.query(User).count()
-    
-    # Real-time mock charting data to keep the dashboard looking dynamic and premium
-    base_verifs = 15234
-    today_verifs = random.randint(800, 3500)
-    
-    # Generate lively graph sequence
-    chart_values = []
-    current_val = random.randint(50, 200)
-    for _ in range(30):
-        current_val += random.randint(-20, 40)
-        if current_val < 0: current_val = 10
-        chart_values.append(current_val)
+    try:
+        users_count = db.query(User).count()
+        today = date.today()
         
-    chart_labels = [f"Day {i+1}" for i in range(30)]
-    
-    return {
-        "total_users": users_count,
-        "verifications_today": today_verifs,
-        "verifications_month": sum(chart_values),
-        "verifications_all_time": base_verifs + sum(chart_values),
-        "chart_data": {
-            "labels": chart_labels,
-            "values": chart_values
+        # 1. today_verifications
+        today_verifications = db.query(EmailResult).filter(
+            func.date(EmailResult.verified_at) == today
+        ).count()
+        
+        # 3. total_verifications
+        total_verifications = db.query(EmailResult).count()
+        
+        # 4. history (Last 7 days)
+        seven_days_ago = today - timedelta(days=6)
+        history_query = db.query(
+            func.date(EmailResult.verified_at).label('date'),
+            func.count(EmailResult.id).label('count')
+        ).filter(
+            func.date(EmailResult.verified_at) >= seven_days_ago
+        ).group_by(
+            func.date(EmailResult.verified_at)
+        ).order_by(
+            func.date(EmailResult.verified_at)
+        ).all()
+        
+        # 5. status_breakdown
+        status_query = db.query(
+            EmailResult.status,
+            func.count(EmailResult.id).label('count')
+        ).group_by(EmailResult.status).all()
+        
+        status_breakdown = {status: count for status, count in status_query if status is not None}
+        
+        # Build chart data for the last 7 days mapping safely
+        chart_labels = [(seven_days_ago + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+        date_counts = {str(row.date): row.count for row in history_query}
+        chart_values = [date_counts.get(label, 0) for label in chart_labels]
+        
+        month_ago = today - timedelta(days=30)
+        verifications_month = db.query(EmailResult).filter(
+            func.date(EmailResult.verified_at) >= month_ago
+        ).count()
+
+        return {
+            "today_verifications": today_verifications,
+            "total_users": users_count,
+            "total_verifications": total_verifications,
+            "history": {
+                "labels": chart_labels,
+                "values": chart_values
+            },
+            "status_breakdown": status_breakdown,
+            # Keeping original keys for frontend compatibility as requested
+            "verifications_today": today_verifications,
+            "verifications_month": verifications_month,
+            "verifications_all_time": total_verifications,
+            "chart_data": {
+                "labels": chart_labels,
+                "values": chart_values
+            }
         }
-    }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")

@@ -70,6 +70,17 @@ class UserFile(Base):
 
     user = relationship("User", back_populates="files")
 
+class EmailResult(Base):
+    __tablename__ = "email_results"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    email = Column(String, index=True, nullable=False)
+    status = Column(String, index=True)
+    verified_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+
+    user = relationship("User", backref="email_results")
+
 Base.metadata.create_all(bind=engine)
 
 def get_db():

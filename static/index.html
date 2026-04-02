@@ -437,6 +437,7 @@
                             <div class="flex gap-2 mt-2">
                                 <input type="text" id="dash-api-key" class="input-modern w-100" readonly style="font-family: monospace; letter-spacing: 1px;">
                                 <button class="btn btn-primary" onclick="navigator.clipboard.writeText(document.getElementById('dash-api-key').value)" style="width: 150px;">Copy Key</button>
+                                <button class="btn btn-outline" onclick="generateNewApiKey()" style="width: 200px; border-color: var(--danger); color: var(--danger);">Regenerate Key</button>
                             </div>
                         </div>
                         
@@ -461,6 +462,31 @@ curl -X POST "http://localhost:8000/api/verify" \
                                 <h2 class="mt-1" id="billing-credits">0</h2>
                             </div>
                             <button class="btn btn-outline w-100 mt-5" onclick="showPage('pricing')">Upgrade Matrix</button>
+                        </div>
+                        
+                        <!-- NEW BILLING PACKS UI -->
+                        <h2 class="mt-5">Buy Credits</h2>
+                        <div class="grid-4 mt-4">
+                            <div class="glass p-3 rounded text-center">
+                                <h3>Basic</h3><p class="text-muted">50,000 Credits</p>
+                                <h2 class="mt-2">$9.99</h2>
+                                <button class="btn btn-primary w-100 mt-3" onclick="buyPack('basic')">Buy Now</button>
+                            </div>
+                            <div class="glass p-3 rounded text-center" style="border-color:var(--primary);">
+                                <h3>Pro</h3><p class="text-muted">150,000 Credits</p>
+                                <h2 class="mt-2">$14.99</h2>
+                                <button class="btn btn-primary w-100 mt-3" onclick="buyPack('pro')">Buy Now</button>
+                            </div>
+                            <div class="glass p-3 rounded text-center">
+                                <h3>Growth</h3><p class="text-muted">500,000 Credits</p>
+                                <h2 class="mt-2">$39.99</h2>
+                                <button class="btn btn-primary w-100 mt-3" onclick="buyPack('growth')">Buy Now</button>
+                            </div>
+                            <div class="glass p-3 rounded text-center">
+                                <h3>Enterprise</h3><p class="text-muted">1M Credits</p>
+                                <h2 class="mt-2">$69.99</h2>
+                                <button class="btn btn-primary w-100 mt-3" onclick="buyPack('enterprise')">Buy Now</button>
+                            </div>
                         </div>
                         
                         <div class="glass p-4 rounded mt-4" style="max-width: 600px;">
@@ -512,6 +538,8 @@ curl -X POST "http://localhost:8000/api/verify" \
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+
                     
                     <!-- MY FILES PANEL -->
                     <div id="tab-files" class="dash-tab" style="display:none">
@@ -577,6 +605,28 @@ curl -X POST "http://localhost:8000/api/verify" \
                 <p id="login-error" class="hidden" style="color: var(--danger); font-size: 0.85rem; text-align: center;"></p>
                 <p class="text-center mt-3 text-muted" style="font-size: 0.9rem;">
                     No account? <a href="#" id="switch-to-signup" style="color: var(--primary);">Create one safely.</a>
+                </p>
+                <p class="text-center mt-2 text-muted" style="font-size: 0.9rem;">
+                    Forgot password? <a href="#" onclick="showForgotModal()" style="color: var(--warning);">Reset it here.</a>
+                </p>
+            </form>
+        </div>
+
+        <!-- FORGOT MODAL -->
+        <div id="forgot-modal" class="modal-card glass hidden">
+            <div class="flex flex-between align-center mb-4">
+                <h2>Reset Password</h2>
+                <button class="close-modal text-muted" onclick="document.getElementById('forgot-modal').classList.add('hidden')">✖</button>
+            </div>
+            <form id="forgot-form" class="flex flex-col gap-3">
+                <input type="email" id="forgot-email" class="input-modern" placeholder="Account Email" required>
+                <button type="submit" class="btn btn-warning mt-2" style="background: var(--warning); color: black; border: none; font-weight:bold;">
+                    <span id="forgot-btn-txt">Send Reset Link</span>
+                    <div class="loader hidden" id="forgot-loader" style="border-top-color:#000;"></div>
+                </button>
+                <p id="forgot-msg" class="hidden mt-2" style="font-size: 0.85rem; text-align: center; color: var(--success); background:rgba(0,255,0,0.1); padding:10px; border-radius:5px;"></p>
+                <p class="text-center mt-3 text-muted" style="font-size: 0.9rem;">
+                    Remembered? <a href="#" onclick="showLoginModal()" style="color: var(--primary);">Go back to login.</a>
                 </p>
             </form>
         </div>

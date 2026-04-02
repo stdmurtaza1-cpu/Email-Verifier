@@ -1,0 +1,15 @@
+[Unit]
+Description=Celery Worker for Email Verifier Tasks
+After=network.target
+
+[Service]
+User=root
+Group=www-data
+WorkingDirectory=/var/www/Email-Verifier
+
+# Command to run celery using your active virtual environment
+ExecStart=/var/www/Email-Verifier/venv/bin/celery -A celery_worker.celery_app worker --loglevel=info -c 10
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

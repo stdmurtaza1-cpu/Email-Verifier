@@ -1,3 +1,4 @@
+from cache import cache_get, cache_set
 import re
 import dns.resolver
 import smtplib
@@ -29,7 +30,6 @@ MAIL_FROM = "verify@gmail.com"
 # Prepare system for multi-IP hooking
 SMTP_IPS = []
 
-DOMAIN_CACHE = {}
 DOMAIN_STATS = {}
 
 ROLE_PATTERNS = [
@@ -345,7 +345,7 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
 
     return last_status, details
 
-def calculate_heuristic_score(email: str, domain: str, has_mx: bool, has_spf: bool, has_dmarc: bool, is_role: bool, is_disposable: bool) -> int:
+def calculate_quality_score(email: str, domain: str, has_mx: bool, has_spf: bool, has_dmarc: bool, is_role: bool, is_disposable: bool) -> int:
     if is_disposable:
         score = -50
     else:
@@ -401,7 +401,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
         "role": False,
         "spf": False,
         "dmarc": False,
-        "score": 0,
+        "quality_score": 0,
         "confidence": 0,
         "status": "REJECTED",
         "details": "",
@@ -433,8 +433,8 @@ async def verify_email(email: str) -> Dict[str, Any]:
             result['catch_all'] = True
 
     # Domain caching check before DNS
-    cached = DOMAIN_CACHE.get(domain)
-    if cached and time.time() - cached['timestamp'] < 600:
+    cached = await cache_get(f"mx:{domain}")
+    if cached:
         logger.debug(f"Using cached domain data for {domain}")
         mx_hosts = cached['mx_hosts']
         spf_exists = cached['spf']
@@ -448,8 +448,8 @@ async def verify_email(email: str) -> Dict[str, Any]:
         result["mx"] = has_mx
         
         if not has_mx:
-            result["score"] = calculate_heuristic_score(email, domain, False, spf_exists, dmarc_exists, result["role"], result["disposable"])
-            result["status"] = "LIKELY_INVALID" if result["score"] <= 40 else "UNVERIFIED"
+            result["quality_score"] = calculate_quality_score(domain, False, result["disposable"], "UNKNOWN", result["syntax"])
+            result["status"] = "LIKELY_INVALID" if result["quality_score"] <= 40 else "UNVERIFIED"
             result["details"] = "No MX or A records found for domain (cached)"
             return result
     else:
@@ -470,12 +470,12 @@ async def verify_email(email: str) -> Dict[str, Any]:
             a_records = await get_a_record(domain)
             if not a_records:
                 logger.debug(f"No A records found for {domain}")
-                DOMAIN_CACHE[domain] = {
+                await cache_set(f"mx:{domain}", {
                     'mx_hosts': [], 'spf': spf_exists, 'dmarc': dmarc_exists,
-                    'has_mx': False, 'catch_all': False, 'timestamp': time.time()
-                }
-                result["score"] = calculate_heuristic_score(email, domain, False, spf_exists, dmarc_exists, result["role"], result["disposable"])
-                result["status"] = "LIKELY_INVALID" if result["score"] <= 40 else "UNVERIFIED"
+                    'has_mx': False, 'catch_all': False
+                }, ttl=3600)
+                result["quality_score"] = calculate_quality_score(domain, False, result["disposable"], "UNKNOWN", result["syntax"])
+                result["status"] = "LIKELY_INVALID" if result["quality_score"] <= 40 else "UNVERIFIED"
                 result["details"] = "No MX or A records found for domain"
                 return result
             mx_hosts = a_records
@@ -483,34 +483,25 @@ async def verify_email(email: str) -> Dict[str, Any]:
         result["mx"] = True
         has_mx = True
         
-        DOMAIN_CACHE[domain] = {
+        await cache_set(f"mx:{domain}", {
             'mx_hosts': mx_hosts,
             'spf': spf_exists,
             'dmarc': dmarc_exists,
             'has_mx': True,
-            'catch_all': False,
-            'timestamp': time.time()
-        }
+            'catch_all': False
+        }, ttl=3600)
 
     # 1. Calculate Score directly
-    h_score = calculate_heuristic_score(
-        email=email, 
-        domain=domain, 
-        has_mx=has_mx, 
-        has_spf=spf_exists, 
-        has_dmarc=dmarc_exists, 
-        is_role=result["role"],
-        is_disposable=result["disposable"]
-    )
-    result["score"] = h_score
-    result["confidence"] = h_score
+    q_score = calculate_quality_score(domain, has_mx, result["disposable"], "UNKNOWN", result["syntax"])
+    result["quality_score"] = q_score
+    result["confidence"] = q_score
 
     # Ensure redundant SMTP skips if recognized as catch-all universally via cache
     if result.get("catch_all"):
         result["smtp"] = True
         result["status"] = "CATCH_ALL"
-        result["score"] = 60
-        result["confidence"] = 60
+        
+        
         result["details"] = "Domain is configured as a catch-all (identified via intelligence tracking)."
         logger.debug(f"Skipping SMTP for {email} -> Identified as CATCH_ALL from cache.")
         return result
@@ -536,15 +527,15 @@ async def verify_email(email: str) -> Dict[str, Any]:
     if smtp_status == "VALID":
         result["status"] = "ACCEPTED"
         result["smtp"] = True
-        result["score"] = 98
-        result["confidence"] = 98
+        
+        
         result["details"] = smtp_details
     elif smtp_status == "CATCH_ALL":
         result["smtp"] = True
         result["catch_all"] = True
         result["status"] = "CATCH_ALL"
-        result["score"] = 60
-        result["confidence"] = 60
+        
+        
         result["details"] = "Domain is configured as a catch-all (accepts any prefix)."
         
         # Domain Intelligence Tracking
@@ -552,12 +543,14 @@ async def verify_email(email: str) -> Dict[str, Any]:
         DOMAIN_STATS[domain]['catch_all_count'] = DOMAIN_STATS[domain].get('catch_all_count', 0) + 1
         
         # Immediately update the global domain cache for future emails in this chunk
-        if domain in DOMAIN_CACHE:
-            DOMAIN_CACHE[domain]['catch_all'] = True
+        cached = await cache_get(f"mx:{domain}")
+        if cached:
+            cached['catch_all'] = True
+            await cache_set(f"mx:{domain}", cached, ttl=3600)
     elif smtp_status == "INVALID":
         result["status"] = "LIKELY_INVALID"
-        result["score"] = 20
-        result["confidence"] = 20
+        
+        
         result["details"] = smtp_details
         
         # Domain Intelligence Tracking
@@ -565,13 +558,13 @@ async def verify_email(email: str) -> Dict[str, Any]:
         DOMAIN_STATS[domain]['invalid_count'] = DOMAIN_STATS[domain].get('invalid_count', 0) + 1
     elif smtp_status == "SPAM BLOCK":
         result["status"] = "SPAM BLOCK"
-        result["score"] = 35
-        result["confidence"] = 35
+        
+        
         result["details"] = smtp_details
     elif smtp_status == "GREYLISTED":
         result["status"] = "GREYLISTED"
-        result["score"] = 45
-        result["confidence"] = 45
+        
+        
         result["details"] = smtp_details
     else:
         # Fallback for TIMEOUT, CONNECTION_REFUSED, UNVERIFIABLE, or UNKNOWN
@@ -581,18 +574,30 @@ async def verify_email(email: str) -> Dict[str, Any]:
         if smtp_status == "TIMEOUT":
             if has_mx and spf_exists and dmarc_exists:
                 result["status"] = "UNVERIFIED"
-                result["score"] = 40
-                result["confidence"] = 40
+                
+                
             else:
                 result["status"] = "TIMEOUT"
-                result["score"] = 30
-                result["confidence"] = 30
+                
+                
         else:
             result["status"] = "UNVERIFIED"
-            result["score"] = 40
-            result["confidence"] = 40
+            
+            
             
         result["details"] = f"SMTP unverified ({smtp_status}). Returned mapped confidence."
+
+    
+    # Calculate final quality score based on all accumulated knowledge and SMTP status
+    final_score = calculate_quality_score(
+        domain=domain,
+        has_mx=has_mx,
+        is_disposable=result.get("disposable", False),
+        smtp_status=smtp_status if 'smtp_status' in locals() else result["status"],
+        syntax_valid=result.get("syntax", False)
+    )
+    result["quality_score"] = final_score
+    result["confidence"] = final_score
 
     logger.debug(f"--- Verification completed for {email} -> {result['status']} (Conf: {result['confidence']}) ---")
     return result

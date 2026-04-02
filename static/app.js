@@ -1144,3 +1144,110 @@ window.linkPartnerLicense = async function() {
 
 // Auto init dashboard if user token
 initDash();
+
+window.generateNewApiKey = async function() {
+    if(!confirm("Are you sure? Your old API key will immediately stop working.")) return;
+    try {
+        const res = await fetch('/api/keys', {
+            method: 'POST',
+            headers: {'Authorization': `Bearer ${authToken}`}
+        });
+        if(!res.ok) throw new Error("Failed to generate key");
+        
+        const data = await res.json();
+        
+        const modalHtml = `
+        <div id="apikey-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center;">
+            <div style="background:#222; padding:2rem; border-radius:10px; max-width:500px; text-align:center; border: 1px solid var(--primary);">
+                <h2 style="color:var(--danger); margin-top:0;">⚠️ IMPORTANT</h2>
+                <p>${data.message}</p>
+                <input type="text" id="new-key-value" value="${data.api_key}" readonly style="width:100%; padding:10px; background:#111; color:#0f0; border:1px solid #444; margin:15px 0;">
+                <button onclick="navigator.clipboard.writeText(document.getElementById('new-key-value').value); alert('Copied!')" class="btn btn-outline" style="color: white; border-color: white;">Copy to Clipboard</button>
+                <div style="margin-top:20px;">
+                    <button onclick="document.getElementById('apikey-modal').remove()" class="btn btn-primary w-100">I have saved it</button>
+                </div>
+            </div>
+        </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        const masked = "evs_...••••••••" + data.api_key.slice(-8);
+        if(document.getElementById('dash-api-key')) {
+            document.getElementById('dash-api-key').value = masked;
+        }
+        if(document.getElementById('dash-overview-api')) {
+            document.getElementById('dash-overview-api').value = masked;
+        }
+        
+    } catch(e) {
+        alert(e.message);
+    }
+}
+
+window.buyPack = async function(packName) {
+    if(!authToken) return alert("Please login first");
+    try {
+        const res = await fetch('/billing/create-checkout', {
+            method: 'POST',
+            headers: {'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json'},
+            body: JSON.stringify({pack: packName})
+        });
+        const data = await res.json();
+        if(data.checkout_url) {
+            window.location.href = data.checkout_url;
+        } else {
+            alert("Error: " + data.detail);
+        }
+    } catch(e) {
+        alert("Payment Error: " + e.message);
+    }
+};
+
+
+window.showForgotModal = function() {
+    DOM.overlay.classList.remove('hidden');
+    DOM.loginModal.classList.add('hidden');
+    DOM.signupModal.classList.add('hidden');
+    const fm = document.getElementById('forgot-modal');
+    if (fm) fm.classList.remove('hidden');
+}
+
+const forgotForm = document.getElementById('forgot-form');
+if(forgotForm) {
+    forgotForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btnText = document.getElementById('forgot-btn-txt');
+        const loader = document.getElementById('forgot-loader');
+        const msgObj = document.getElementById('forgot-msg');
+        
+        btnText.classList.add('hidden');
+        loader.classList.remove('hidden');
+        msgObj.classList.add('hidden');
+
+        try {
+            const res = await fetch('/api/forgot-password', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    email: document.getElementById('forgot-email').value
+                })
+            });
+
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.detail || "Request Failed.");
+
+            msgObj.textContent = data.message;
+            msgObj.style.color = "var(--success)";
+            msgObj.style.backgroundColor = "rgba(0,255,0,0.1)";
+            msgObj.classList.remove('hidden');
+        } catch(err) {
+            msgObj.textContent = err.message;
+            msgObj.style.color = "var(--danger)";
+            msgObj.style.backgroundColor = "rgba(255,0,0,0.1)";
+            msgObj.classList.remove('hidden');
+        } finally {
+            btnText.classList.remove('hidden');
+            loader.classList.add('hidden');
+        }
+    });
+}

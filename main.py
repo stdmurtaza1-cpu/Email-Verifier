@@ -11,6 +11,7 @@ from routes.auth import router as auth_router
 from routes.admin import router as admin_router
 from routes.storage import router as storage_router
 from routes.partner import router as partner_router
+from routes.billing import router as billing_router
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["10000/minute"])
 
@@ -39,9 +40,10 @@ async def serve_admin_panel():
     return FileResponse(os.path.join(os.path.dirname(__file__), "static", "admin.html"))
 
 app.include_router(auth_router, prefix="/api")
-app.include_router(admin_router, prefix="/admin")
+app.include_router(admin_router, prefix="/api/admin")
 app.include_router(storage_router, prefix="/api/storage")
 app.include_router(partner_router, prefix="/api/partner")
+app.include_router(billing_router, prefix="/billing")
 
 # Ensure static and upload dirs exist (jobs dir for bulk 1M results)
 os.makedirs("static", exist_ok=True)

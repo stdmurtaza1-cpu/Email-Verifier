@@ -144,10 +144,10 @@ async def get_usage(db: Session = Depends(get_db), current_user: User = Depends(
             and_(UserFile.pool_api_key == None, UserFile.user_id == current_user.id)
         )
     ).all()
-    used_bytes = sum(f.file_size for f in files)
+    used_bytes = sum((f.file_size or 0) for f in files)
     perc = (used_bytes / MAX_STORAGE_BYTES) * 100
     return {
         "used_bytes": used_bytes,
         "total_bytes": MAX_STORAGE_BYTES,
-        "percentage": round(perc, 2)
+        "percentage": float(f"{perc:.2f}")
     }

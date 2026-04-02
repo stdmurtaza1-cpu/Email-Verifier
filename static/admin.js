@@ -104,7 +104,7 @@ function getHeaders() {
 
 async function fetchStats() {
     try {
-        const statsRes = await fetch('/admin/stats', { headers: getHeaders() });
+        const statsRes = await fetch('/api/admin/stats', { headers: getHeaders() });
         if(!statsRes.ok) return;
         const stats = await statsRes.json();
         
@@ -128,12 +128,14 @@ async function loadDashboard() {
     try {
         await fetchStats();
         
-        const usersRes = await fetch('/admin/users', { headers: getHeaders() });
+        const usersRes = await fetch('/api/admin/users', { headers: getHeaders() });
+        if (!usersRes.ok) throw new Error("Failed to fetch users");
         const usersData = await usersRes.json();
         allUsers = usersData.users || [];
         renderUsersTable(allUsers);
         
-        const keysRes = await fetch('/admin/keys', { headers: getHeaders() });
+        const keysRes = await fetch('/api/admin/keys', { headers: getHeaders() });
+        if (!keysRes.ok) throw new Error("Failed to fetch keys");
         const keysData = await keysRes.json();
         allKeys = keysData.keys || [];
         renderKeysTable(allKeys);
@@ -267,7 +269,7 @@ window.adminUpdatePlan = async function() {
     if(!currentViewUserEmail) return;
     const plan = document.getElementById('modal-plan-select').value;
     try {
-        const res = await fetch('/admin/upgrade-plan', {
+        const res = await fetch('/api/admin/upgrade-plan', {
             method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ user_email: currentViewUserEmail, plan: plan })
@@ -287,7 +289,7 @@ window.adminAddCredits = async function() {
     const amt = parseInt(document.getElementById('modal-credits-input').value);
     if (!amt || amt <= 0) return;
     try {
-        const res = await fetch('/admin/add-credits', {
+        const res = await fetch('/api/admin/add-credits', {
             method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ user_email: currentViewUserEmail, credits_to_add: amt })
@@ -307,7 +309,7 @@ window.adminToggleUser = async function() {
     const user = allUsers.find(u => u.email === currentViewUserEmail);
     const newState = user.is_active === false ? true : false;
     try {
-        const res = await fetch('/admin/toggle-user', {
+        const res = await fetch('/api/admin/toggle-user', {
             method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ user_email: currentViewUserEmail, is_active: newState })
@@ -320,7 +322,7 @@ window.adminToggleUser = async function() {
 
 window.toggleKeyStatus = async function(keyId, activeState) {
     try {
-        const res = await fetch('/admin/toggle-key', {
+        const res = await fetch('/api/admin/toggle-key', {
             method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ key_id: keyId, is_active: activeState })
@@ -333,7 +335,7 @@ window.toggleKeyStatus = async function(keyId, activeState) {
 window.revokeKey = async function(keyId) {
     if(!confirm("Are you sure you want to completely revoke and delete this API Key?")) return;
     try {
-        const res = await fetch('/admin/revoke-key', {
+        const res = await fetch('/api/admin/revoke-key', {
             method: 'DELETE',
             headers: getHeaders(),
             body: JSON.stringify({ key_id: keyId })

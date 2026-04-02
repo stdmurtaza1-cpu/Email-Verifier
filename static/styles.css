@@ -96,6 +96,7 @@ a { text-decoration: none; color: inherit; }
 .gradient-text {
     background: linear-gradient(90deg, var(--secondary) 0%, var(--primary) 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 

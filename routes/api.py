@@ -1,3 +1,6 @@
+import secrets
+import hashlib
+from cache import cache_hset, cache_hgetall
 from fastapi import APIRouter, Depends, HTTPException, Security, Request, UploadFile, File, Form, Body, BackgroundTasks
 from fastapi.responses import FileResponse
 from typing import Optional
@@ -56,7 +59,6 @@ BULK_CONCURRENCY = 50
 BULK_MAX_FILE_BYTES = 100 * 1024 * 1024  # 100 MB
 JOBS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "jobs")
 
-_bulk_jobs: dict[str, dict] = {}  # job_id -> { status, total, processed, results_path, error, user_id }
 
 
 def _ensure_jobs_dir():
@@ -65,8 +67,8 @@ def _ensure_jobs_dir():
 
 async def _process_bulk_job(job_id: str, emails: list[str]):
     _ensure_jobs_dir()
-    job = _bulk_jobs.get(job_id)
-    if not job or job["status"] != "processing":
+    job = await cache_hgetall(f"job:{job_id}")
+    if not job or job.get("status") != "processing":
         return
     total = len(emails)
     results_path = os.path.join(JOBS_DIR, f"{job_id}.csv")
@@ -79,7 +81,7 @@ async def _process_bulk_job(job_id: str, emails: list[str]):
     try:
         with open(results_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["email", "status", "score", "syntax", "mx", "smtp", "catch_all", "disposable", "role", "spf", "dmarc", "details"])
+            writer.writerow(["email", "status", "quality_score", "syntax", "mx", "smtp", "catch_all", "disposable", "role", "spf", "dmarc", "details"])
             processed = 0
             for start in range(0, total, BULK_CHUNK_SIZE):
                 chunk = emails[start : start + BULK_CHUNK_SIZE]
@@ -92,7 +94,7 @@ async def _process_bulk_job(job_id: str, emails: list[str]):
                         row = [
                             r.get("email", ""),
                             r.get("status", ""),
-                            r.get("score", 0),
+                            r.get("quality_score", 0),
                             r.get("syntax", False),
                             r.get("mx", False),
                             r.get("smtp", False),
@@ -107,11 +109,15 @@ async def _process_bulk_job(job_id: str, emails: list[str]):
                 processed += len(chunk)
                 job["processed"] = processed
                 job["status"] = "processing"
-        job["status"] = "completed"
-        job["processed"] = total
+        await cache_hset(f"job:{job_id}", {
+            "status": "completed",
+            "processed": total
+        }, ttl=86400)
     except Exception as e:
-        job["status"] = "failed"
-        job["error"] = str(e)
+        await cache_hset(f"job:{job_id}", {
+            "status": "failed",
+            "error": str(e)
+        }, ttl=86400)
     return
 
 
@@ -123,6 +129,21 @@ class VerifyRequest(BaseModel):
 async def verify_free(request: Request, payload: VerifyRequest):
     result = await verify_email(payload.email)
     return result
+
+
+@router.post("/keys")
+async def generate_api_key(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    raw_key = "evs_" + secrets.token_urlsafe(32)
+    hashed = hashlib.sha256(raw_key.encode()).hexdigest()
+    
+    current_user.api_key = hashed
+    current_user.api_key_active = True
+    db.commit()
+    
+    return {
+        "api_key": raw_key,
+        "message": "Save this key now. It will never be shown again."
+    }
 
 @router.post("/verify")
 async def verify_single(request: Request, payload: VerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -216,14 +237,14 @@ async def verify_bulk_large(
 
     job_id = str(uuid.uuid4())
     _ensure_jobs_dir()
-    _bulk_jobs[job_id] = {
+    await cache_hset(f"job:{job_id}", {
         "status": "processing",
         "total": len(emails),
         "processed": 0,
-        "results_path": None,
-        "error": None,
+        "error": "",
         "user_id": getattr(current_user, 'original_id', current_user.id),
-    }
+        "created_at": datetime.utcnow().isoformat()
+    }, ttl=86400)
 
     background_tasks.add_task(_process_bulk_job, job_id, emails)
     return {
@@ -236,18 +257,18 @@ async def verify_bulk_large(
 
 @router.get("/bulk-verify/status/{job_id}")
 async def bulk_job_status(job_id: str, current_user: User = Depends(get_current_user)):
-    job = _bulk_jobs.get(job_id)
+    job = await cache_hgetall(f"job:{job_id}")
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
     true_user_id = getattr(current_user, 'original_id', current_user.id)
-    if job.get("user_id") != true_user_id:
+    if str(job.get("user_id")) != str(true_user_id):
         raise HTTPException(status_code=403, detail="Not your job.")
     return {
         "job_id": job_id,
-        "status": job["status"],
-        "total": job["total"],
-        "processed": job["processed"],
-        "progress_pct": round(100 * job["processed"] / job["total"], 1) if job["total"] else 0,
+        "status": job.get("status"),
+        "total": int(job.get("total", 0)),
+        "processed": int(job.get("processed", 0)),
+        "progress_pct": round(100 * float(job["processed"]) / float(job["total"]), 1) if float(job.get("total", 0)) else 0,
         "download_ready": job["status"] == "completed",
         "error": job.get("error"),
     }
@@ -255,11 +276,11 @@ async def bulk_job_status(job_id: str, current_user: User = Depends(get_current_
 
 @router.get("/bulk-verify/download/{job_id}")
 async def bulk_job_download(job_id: str, current_user: User = Depends(get_current_user)):
-    job = _bulk_jobs.get(job_id)
+    job = await cache_hgetall(f"job:{job_id}")
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
     true_user_id = getattr(current_user, 'original_id', current_user.id)
-    if job.get("user_id") != true_user_id:
+    if str(job.get("user_id")) != str(true_user_id):
         raise HTTPException(status_code=403, detail="Not your job.")
     if job["status"] != "completed":
         raise HTTPException(status_code=400, detail="Job not ready for download. Check status first.")

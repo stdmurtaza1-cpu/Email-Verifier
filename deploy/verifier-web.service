@@ -1,0 +1,16 @@
+[Unit]
+Description=Gunicorn daemon for Email Verifier API App
+After=network.target
+
+[Service]
+User=root
+# Change User to your specific non-root user if needed
+Group=www-data
+# Assuming you cloned your code exactly in /var/www/Email-Verifier
+WorkingDirectory=/var/www/Email-Verifier
+# Command to run backend. -w is workers, -k is backend runner type (uvicorn)
+ExecStart=/var/www/Email-Verifier/venv/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 127.0.0.1:8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

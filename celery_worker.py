@@ -63,7 +63,7 @@ def verify_batch_emails(self, emails: list, completed_results: list = None):
                 "email": email_address, 
                 "status": "ERROR", 
                 "details": str(r), 
-                "score": 0,
+                "quality_score": 0,
                 "verification_method": "error"
             })
         else:
