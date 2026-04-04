@@ -1,5 +1,6 @@
 from cache import cache_get, cache_set
 import re
+import os
 import dns.resolver
 import smtplib
 import socket
@@ -23,12 +24,15 @@ if not logger.handlers:
 
 EMAIL_REGEX = re.compile(r'^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$')
 
-EHLO_HOST = "mail.google.com"
-MAIL_FROM = "verify@gmail.com"
+# HELO/EHLO domain — set HELO_DOMAIN in .env to your actual sending domain
+HELO_DOMAIN = os.getenv("HELO_DOMAIN", "mail.verification-service.com")
+EHLO_HOST = HELO_DOMAIN          # kept for backward-compat references
+MAIL_FROM = f"verify@{HELO_DOMAIN}"
 
-# List of SMTP Source IPs for rotation. Replace with your actual server IPs.
-# Prepare system for multi-IP hooking
-SMTP_IPS = []
+# SMTP source IP rotation — set SMTP_SOURCE_IPS in .env as a comma-separated list
+# Leave unset to use the server's default outbound IP
+_raw_ips = os.getenv("SMTP_SOURCE_IPS", "").strip()
+SMTP_IPS: List[str] = [ip.strip() for ip in _raw_ips.split(",") if ip.strip()] if _raw_ips else []
 
 DOMAIN_STATS = {}
 
@@ -244,19 +248,53 @@ async def _smtp_verify_email(smtp, domain: str, email: str) -> Tuple[int, str, i
         return c, m, 0
     return await loop.run_in_executor(None, _exchange)
 
+# ── Per-domain SMTP rate limiter ──────────────────────────────────────────────
+SMTP_RATE_LIMIT = int(os.getenv("SMTP_RATE_LIMIT_PER_MIN", "5"))   # requests per domain per minute
+
+async def _check_smtp_rate_limit(domain: str) -> bool:
+    """
+    Returns True (allowed) or False (rate-limited).
+    Uses Redis incr+expire counter keyed per domain per minute window.
+    Falls back to True (allow) if Redis is unavailable, so verifier never
+    blocks completely just because Redis is down.
+    """
+    key = f"smtp_rate:{domain}"
+    try:
+        import redis as _redis
+        import os as _os
+        r = _redis.from_url(_os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0"), decode_responses=True)
+        count = r.incr(key)
+        if count == 1:
+            r.expire(key, 60)   # start the 60-second window on first hit
+        if count > SMTP_RATE_LIMIT:
+            logger.warning(f"SMTP rate limit reached for {domain} ({count}/{SMTP_RATE_LIMIT} per min)")
+            return False
+        return True
+    except Exception as exc:
+        logger.debug(f"Rate-limit Redis unavailable, allowing request: {exc}")
+        return True   # fail open — never hard-block due to Redis issues
+
+
 async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
     domain = email.split("@")[1]
-    
+
+    # ── Per-domain rate-limit guard ───────────────────────────────────────────
+    if not await _check_smtp_rate_limit(domain):
+        return "RATE_LIMITED", f"Too many SMTP requests to {domain} this minute. Try again shortly."
+
     # Smarter port order
     ports = [
         (587, 'starttls'),
         (465, 'ssl'),
         (25, 'plain')
     ]
-    
+
     last_status = "UNKNOWN"
     details = "No SMTP attempts made"
-    
+
+    # ── Jitter: randomised delay to appear more human-like ────────────────────
+    await asyncio.sleep(random.uniform(0.5, 2.0))
+
     for mx_host in mx_hosts[:2]:
         logger.debug(f"Resolving MX host {mx_host}...")
         target = await resolve_host(mx_host)
@@ -345,7 +383,7 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
 
     return last_status, details
 
-def calculate_quality_score(email: str, domain: str, has_mx: bool, has_spf: bool, has_dmarc: bool, is_role: bool, is_disposable: bool) -> int:
+def calculate_quality_score(email: str, domain: str, has_mx: bool = False, has_spf: bool = False, has_dmarc: bool = False, is_role: bool = False, is_disposable: bool = False) -> int:
     if is_disposable:
         score = -50
     else:
@@ -448,7 +486,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
         result["mx"] = has_mx
         
         if not has_mx:
-            result["quality_score"] = calculate_quality_score(domain, False, result["disposable"], "UNKNOWN", result["syntax"])
+            result["quality_score"] = calculate_quality_score(email=email, domain=domain, has_mx=False, has_spf=spf_exists, has_dmarc=dmarc_exists, is_role=result["role"], is_disposable=result["disposable"])
             result["status"] = "LIKELY_INVALID" if result["quality_score"] <= 40 else "UNVERIFIED"
             result["details"] = "No MX or A records found for domain (cached)"
             return result
@@ -474,7 +512,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
                     'mx_hosts': [], 'spf': spf_exists, 'dmarc': dmarc_exists,
                     'has_mx': False, 'catch_all': False
                 }, ttl=3600)
-                result["quality_score"] = calculate_quality_score(domain, False, result["disposable"], "UNKNOWN", result["syntax"])
+                result["quality_score"] = calculate_quality_score(email=email, domain=domain, has_mx=False, has_spf=spf_exists, has_dmarc=dmarc_exists, is_role=result["role"], is_disposable=result["disposable"])
                 result["status"] = "LIKELY_INVALID" if result["quality_score"] <= 40 else "UNVERIFIED"
                 result["details"] = "No MX or A records found for domain"
                 return result
@@ -492,7 +530,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
         }, ttl=3600)
 
     # 1. Calculate Score directly
-    q_score = calculate_quality_score(domain, has_mx, result["disposable"], "UNKNOWN", result["syntax"])
+    q_score = calculate_quality_score(email=email, domain=domain, has_mx=has_mx, has_spf=spf_exists, has_dmarc=dmarc_exists, is_role=result["role"], is_disposable=result["disposable"])
     result["quality_score"] = q_score
     result["confidence"] = q_score
 
@@ -566,6 +604,12 @@ async def verify_email(email: str) -> Dict[str, Any]:
         
         
         result["details"] = smtp_details
+    elif smtp_status == "RATE_LIMITED":
+        result["status"] = "RATE_LIMITED"
+        result["verification_method"] = "heuristic"
+        result["details"] = smtp_details
+        logger.debug(f"Rate-limited for {domain}, returning without score calculation.")
+        return result
     else:
         # Fallback for TIMEOUT, CONNECTION_REFUSED, UNVERIFIABLE, or UNKNOWN
         logger.debug(f"SMTP unreliable due to {smtp_status}. Preserving original heuristic method identity.")
@@ -590,11 +634,13 @@ async def verify_email(email: str) -> Dict[str, Any]:
     
     # Calculate final quality score based on all accumulated knowledge and SMTP status
     final_score = calculate_quality_score(
+        email=email,
         domain=domain,
         has_mx=has_mx,
-        is_disposable=result.get("disposable", False),
-        smtp_status=smtp_status if 'smtp_status' in locals() else result["status"],
-        syntax_valid=result.get("syntax", False)
+        has_spf=spf_exists,
+        has_dmarc=dmarc_exists,
+        is_role=result.get("role", False),
+        is_disposable=result.get("disposable", False)
     )
     result["quality_score"] = final_score
     result["confidence"] = final_score

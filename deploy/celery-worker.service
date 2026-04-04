@@ -1,0 +1,38 @@
+[Unit]
+Description=Email Verifier — Celery Worker
+After=network.target redis.service
+Requires=redis.service
+
+[Service]
+Type=forking
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/emailverifier
+
+# Load all secrets from the .env file
+EnvironmentFile=/var/www/emailverifier/.env
+
+# Use the project virtualenv
+ExecStart=/var/www/emailverifier/.venv/bin/celery \
+    -A celery_worker worker \
+    --loglevel=info \
+    --concurrency=4 \
+    --pidfile=/run/celery/%n.pid \
+    --logfile=/var/log/celery/%n.log
+
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=30
+
+# Auto-restart on crash — jobs queued in Redis survive and are picked up on restart
+Restart=always
+RestartSec=10
+
+# Runtime directories created automatically
+RuntimeDirectory=celery
+RuntimeDirectoryMode=0755
+LogsDirectory=celery
+LogsDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target

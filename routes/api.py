@@ -1,15 +1,17 @@
+import asyncio
 import secrets
 import hashlib
 from cache import cache_hset, cache_hgetall
-from fastapi import APIRouter, Depends, HTTPException, Security, Request, UploadFile, File, Form, Body, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from typing import Optional
 from pydantic import BaseModel
 import re
 import os
 import uuid
+from datetime import datetime
 from sqlalchemy.orm import Session
-from database import get_db, User
+from database import get_db, SessionLocal, User, EmailResult, UserFile
 from middleware.auth import get_current_user
 from core.verifier import verify_email
 import csv
@@ -60,65 +62,35 @@ BULK_MAX_FILE_BYTES = 100 * 1024 * 1024  # 100 MB
 JOBS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "jobs")
 
 
-
 def _ensure_jobs_dir():
     os.makedirs(JOBS_DIR, exist_ok=True)
 
 
-async def _process_bulk_job(job_id: str, emails: list[str]):
-    _ensure_jobs_dir()
-    job = await cache_hgetall(f"job:{job_id}")
-    if not job or job.get("status") != "processing":
-        return
-    total = len(emails)
-    results_path = os.path.join(JOBS_DIR, f"{job_id}.csv")
-    sem = asyncio.Semaphore(BULK_CONCURRENCY)
+def _build_email_result(r: dict, user_id: int, file_id: Optional[int] = None) -> EmailResult:
+    """Convert a verify_email() result dict into an EmailResult ORM object."""
+    return EmailResult(
+        user_id=user_id,
+        file_id=file_id,
+        email=r.get("email", ""),
+        status=r.get("status", "UNKNOWN"),
+        score=int(r.get("quality_score", 0) or 0),
+        syntax_valid=bool(r.get("syntax", False)),
+        is_disposable=bool(r.get("disposable", False)),
+        mx_found=bool(r.get("mx", False)),
+        smtp_response=None,          # raw SMTP code not surfaced in result dict
+        verified_at=datetime.utcnow(),
+    )
 
-    async def bounded_verify(email: str):
-        async with sem:
-            return await verify_email(email)
 
-    try:
-        with open(results_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["email", "status", "quality_score", "syntax", "mx", "smtp", "catch_all", "disposable", "role", "spf", "dmarc", "details"])
-            processed = 0
-            for start in range(0, total, BULK_CHUNK_SIZE):
-                chunk = emails[start : start + BULK_CHUNK_SIZE]
-                tasks = [bounded_verify(e) for e in chunk]
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                for r in results:
-                    if isinstance(r, Exception):
-                        row = ["", "ERROR", 0, False, False, False, False, False, False, False, False, str(r)]
-                    else:
-                        row = [
-                            r.get("email", ""),
-                            r.get("status", ""),
-                            r.get("quality_score", 0),
-                            r.get("syntax", False),
-                            r.get("mx", False),
-                            r.get("smtp", False),
-                            r.get("catch_all", False),
-                            r.get("disposable", False),
-                            r.get("role", False),
-                            r.get("spf", False),
-                            r.get("dmarc", False),
-                            (r.get("details") or ""),
-                        ]
-                    writer.writerow(row)
-                processed += len(chunk)
-                job["processed"] = processed
-                job["status"] = "processing"
-        await cache_hset(f"job:{job_id}", {
-            "status": "completed",
-            "processed": total
-        }, ttl=86400)
-    except Exception as e:
-        await cache_hset(f"job:{job_id}", {
-            "status": "failed",
-            "error": str(e)
-        }, ttl=86400)
-    return
+def _bulk_save_results(db: Session, result_objects: list, batch_size: int = 100) -> None:
+    """Insert EmailResult rows in batches to avoid large memory spikes."""
+    for i in range(0, len(result_objects), batch_size):
+        batch = result_objects[i : i + batch_size]
+        db.bulk_save_objects(batch)
+        db.commit()
+
+
+# _process_bulk_job removed — logic now lives in celery_worker.process_bulk_job
 
 
 class VerifyRequest(BaseModel):
@@ -126,8 +98,16 @@ class VerifyRequest(BaseModel):
 
 @router.post("/verify-free")
 @limiter.limit("10/day")
-async def verify_free(request: Request, payload: VerifyRequest):
+async def verify_free(request: Request, payload: VerifyRequest, db: Session = Depends(get_db)):
     result = await verify_email(payload.email)
+
+    # Persist result — best-effort (no user_id for anonymous free tier)
+    try:
+        db.add(_build_email_result(result, user_id=0, file_id=None))
+        db.commit()
+    except Exception:
+        db.rollback()  # don't block the response
+
     return result
 
 
@@ -151,7 +131,15 @@ async def verify_single(request: Request, payload: VerifyRequest, current_user: 
     db.commit()
 
     result = await verify_email(payload.email)
-    
+
+    # Persist result
+    try:
+        user_id = getattr(current_user, 'original_id', current_user.id)
+        db.add(_build_email_result(result, user_id=user_id, file_id=None))
+        db.commit()
+    except Exception:
+        db.rollback()
+
     result["credits_remaining"] = get_display_credits(current_user)
     return result
 
@@ -170,7 +158,7 @@ async def verify_bulk(request: Request, file: Optional[UploadFile] = File(None),
         raise HTTPException(status_code=400, detail="No file or text provided for bulk verification.")
         
     # Extract emails using regex across the entire parsed text
-    email_pattern = r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+"
+    email_pattern = r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}"
     emails = list(set(re.findall(email_pattern, text)))
                 
     if not emails:
@@ -191,6 +179,14 @@ async def verify_bulk(request: Request, file: Optional[UploadFile] = File(None),
             
     tasks = [bounded_verify(email) for email in emails]
     results = await asyncio.gather(*tasks)
+
+    # Persist all results in batches of 100
+    try:
+        user_id = getattr(current_user, 'original_id', current_user.id)
+        rows = [_build_email_result(r, user_id=user_id, file_id=None) for r in results if not isinstance(r, Exception)]
+        _bulk_save_results(db, rows, batch_size=100)
+    except Exception:
+        db.rollback()
     
     return {
         "results": results,
@@ -203,12 +199,11 @@ async def verify_bulk(request: Request, file: Optional[UploadFile] = File(None),
 @router.post("/bulk-verify-large")
 async def verify_bulk_large(
     request: Request,
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Bulk verify up to 1M emails via background job. Returns job_id; poll status and download CSV when done."""
+    """Bulk verify up to 1M emails via Celery. Returns job_id immediately; poll /bulk-verify/status/{job_id}."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided.")
     size = 0
@@ -226,31 +221,68 @@ async def verify_bulk_large(
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="Invalid encoding. Use UTF-8.")
 
-    email_pattern = r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+"
+    email_pattern = r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}"
     emails = list(dict.fromkeys(re.findall(email_pattern, text)))[:BULK_MAX_EMAILS]
 
     if not emails:
         raise HTTPException(status_code=400, detail="No valid emails found.")
-        
+
     check_and_deduct_credits(current_user, len(emails))
     db.commit()
 
+    user_id = getattr(current_user, 'original_id', current_user.id)
+
+    # Create UserFile tracking row (history + admin stats)
+    user_file = UserFile(
+        user_id=user_id,
+        filename=file.filename or "bulk_upload",
+        file_size=size,
+        file_type="csv",
+        status="queued",
+        processed_count=0,
+    )
+    try:
+        db.add(user_file)
+        db.commit()
+        db.refresh(user_file)
+        file_id: Optional[int] = user_file.id
+    except Exception:
+        db.rollback()
+        file_id = None
+
     job_id = str(uuid.uuid4())
     _ensure_jobs_dir()
+
+    # Register job in Redis BEFORE dispatching to Celery
     await cache_hset(f"job:{job_id}", {
-        "status": "processing",
+        "status": "queued",
         "total": len(emails),
         "processed": 0,
         "error": "",
-        "user_id": getattr(current_user, 'original_id', current_user.id),
-        "created_at": datetime.utcnow().isoformat()
+        "user_id": user_id,
+        "file_id": file_id or "",
+        "created_at": datetime.utcnow().isoformat(),
     }, ttl=86400)
 
-    background_tasks.add_task(_process_bulk_job, job_id, emails)
+    # Dispatch to Celery — crash-safe, survives web server restarts
+    try:
+        from celery_worker import process_bulk_job
+        process_bulk_job.delay(job_id, emails, user_id, file_id)
+    except Exception as exc:
+        # Refund credits and surface the error if Celery is down
+        current_user.credits += len(emails)
+        db.commit()
+        await cache_hset(f"job:{job_id}", {"status": "failed", "error": str(exc)}, ttl=3600)
+        raise HTTPException(
+            status_code=503,
+            detail=f"Celery worker unavailable. Ensure Redis + celery-worker service are running. ({exc})"
+        )
+
     return {
         "job_id": job_id,
+        "status": "queued",
         "total": len(emails),
-        "message": "Bulk verification started. Use GET /api/bulk-verify/status/{job_id} to poll progress, then GET /api/bulk-verify/download/{job_id} to download CSV.",
+        "message": "Job queued. Poll GET /api/bulk-verify/status/{job_id} for progress, then GET /api/bulk-verify/download/{job_id} to download CSV.",
         "credits_remaining": get_display_credits(current_user),
     }
 
@@ -303,6 +335,14 @@ async def verify_batch(request: Request, payload: BatchVerifyRequest, current_us
     
     tasks = [verify_email(email) for email in emails]
     results = await asyncio.gather(*tasks)
+
+    # Persist results
+    try:
+        user_id = getattr(current_user, 'original_id', current_user.id)
+        rows = [_build_email_result(r, user_id=user_id, file_id=None) for r in results if not isinstance(r, Exception)]
+        _bulk_save_results(db, rows, batch_size=100)
+    except Exception:
+        db.rollback()
     
     return {
         "results": results,

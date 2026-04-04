@@ -6,6 +6,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import os
+import logging
+from contextlib import asynccontextmanager
 from routes.api import router as api_router
 from routes.auth import router as auth_router
 from routes.admin import router as admin_router
@@ -13,9 +15,27 @@ from routes.storage import router as storage_router
 from routes.partner import router as partner_router
 from routes.billing import router as billing_router
 
+logger = logging.getLogger("main")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── Startup checks ────────────────────────────────────────────────────────
+    from core.verifier import SMTP_IPS, HELO_DOMAIN
+    if not SMTP_IPS:
+        logger.warning(
+            "SMTP_IPS not configured. Using single server IP for all SMTP verifications. "
+            "Risk of IP blacklisting at high volume. "
+            "Set SMTP_SOURCE_IPS in .env to enable IP rotation."
+        )
+    else:
+        logger.info(f"SMTP IP rotation active: {len(SMTP_IPS)} IP(s) configured.")
+    logger.info(f"SMTP HELO domain: {HELO_DOMAIN}")
+    yield
+    # ── Shutdown (nothing to clean up yet) ───────────────────────────────────
+
 limiter = Limiter(key_func=get_remote_address, default_limits=["10000/minute"])
 
-app = FastAPI(title="Email Verifier Ninja")
+app = FastAPI(title="Email Verifier Ninja", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

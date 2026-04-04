@@ -217,9 +217,9 @@ document.getElementById('user-logout-btn').addEventListener('click', () => {
 
 
 // ==========================================
-// DASHBOARD LOGIC
+// DASHBOARD LOGIC (refreshUserState)
 // ==========================================
-async function initDash() {
+async function refreshUserState() {
     if(!authToken) return;
     try {
         const req = await fetch('/api/me', {
@@ -256,14 +256,29 @@ async function initDash() {
         const bulkUnlocked = document.getElementById('bulk-unlocked-ui');
         const bulkBadge = document.getElementById('bulk-lock-badge');
         
-        if(currentUser.plan === 'free') {
+        // Multi-condition check for unlocking Bulk UI
+        const hasBulkAccess = 
+            currentUser.plan !== 'free' || 
+            currentUser.has_partner_license === true || 
+            currentUser.partner_status === 'approved' || 
+            currentUser.credits > 500;
+
+        if(!hasBulkAccess) {
             bulkLocked.classList.remove('hidden');
             bulkUnlocked.classList.add('hidden');
+            bulkUnlocked.style.opacity = '0';
             bulkBadge.textContent = "STARTER+ REQUIRED";
             bulkBadge.style.background = "var(--danger)";
         } else {
             bulkLocked.classList.add('hidden');
             bulkUnlocked.classList.remove('hidden');
+            
+            // Smoothly display the unlocked section
+            setTimeout(() => {
+                bulkUnlocked.style.transition = 'opacity 0.5s ease-in-out';
+                bulkUnlocked.style.opacity = '1';
+            }, 50);
+
             bulkBadge.textContent = "UNLOCKED";
             bulkBadge.style.background = "var(--success)";
         }
@@ -292,6 +307,22 @@ async function initDash() {
         DOM.navAuth.classList.add('hidden');
         DOM.navUnauth.classList.remove('hidden');
     }
+}
+
+// Keep initDash alias for backwards compatibility
+window.initDash = refreshUserState;
+window.refreshUserState = refreshUserState;
+
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = "position:fixed;bottom:20px;right:20px;background:#00f260;color:#0f172a;padding:15px;border-radius:5px;font-weight:bold;z-index:9999;transition:opacity 0.4s ease-in-out;opacity:0;box-shadow:0 10px 25px rgba(0,242,96,0.3);";
+    document.body.appendChild(toast);
+    setTimeout(() => toast.style.opacity = '1', 50);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 400);
+    }, 4500);
 }
 
 // ==========================================
@@ -1130,20 +1161,24 @@ window.linkPartnerLicense = async function() {
         
         btn.textContent = "Request Sent!";
         btn.style.background = "var(--success)";
+        
+        // Immediately fetch updated user data & unlock UI smoothly
+        await refreshUserState();
+        showToast("Partner access activated! Bulk tools are now unlocked.");
+        
         setTimeout(() => {
             btn.textContent = "Link Account";
             btn.style.background = "";
-            initDash(); // Reload to show new status
         }, 2000);
     } catch(err) {
         alert(err.message);
     } finally {
-        if(btn) btn.textContent = "Link Account";
+        if(btn && btn.textContent !== "Request Sent!") btn.textContent = "Link Account";
     }
 }
 
 // Auto init dashboard if user token
-initDash();
+refreshUserState();
 
 window.generateNewApiKey = async function() {
     if(!confirm("Are you sure? Your old API key will immediately stop working.")) return;

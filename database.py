@@ -5,8 +5,14 @@ import datetime
 import uuid
 
 import os
+from dotenv import load_dotenv
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./api_keys.db")
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("FATAL ERROR: DATABASE_URL environment variable is not set. Cannot connect to the database. Please set it in your .env file or environment.")
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -67,19 +73,31 @@ class UserFile(Base):
     file_type = Column(String, default="csv")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     description = Column(String, nullable=True)
+    # Bulk-job tracking
+    status = Column(String, default="pending")          # pending | processing | completed | failed
+    processed_count = Column(Integer, default=0)
+    completed_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="files")
+    email_results = relationship("EmailResult", back_populates="user_file", cascade="all, delete-orphan")
 
 class EmailResult(Base):
     __tablename__ = "email_results"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    file_id = Column(Integer, ForeignKey("user_files.id"), nullable=True, index=True)
     email = Column(String, index=True, nullable=False)
     status = Column(String, index=True)
+    score = Column(Integer, default=0)
+    syntax_valid = Column(Boolean, default=False)
+    is_disposable = Column(Boolean, default=False)
+    mx_found = Column(Boolean, default=False)
+    smtp_response = Column(Integer, nullable=True)   # raw SMTP code when available
     verified_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
     user = relationship("User", backref="email_results")
+    user_file = relationship("UserFile", back_populates="email_results")
 
 Base.metadata.create_all(bind=engine)
 

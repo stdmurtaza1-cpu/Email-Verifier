@@ -1,90 +1,290 @@
 import asyncio
+import csv
 import os
+import logging
+from datetime import datetime
+from typing import Optional
+
 from celery import Celery
-from core.verifier import verify_email
 from celery.utils.log import get_task_logger
+from core.verifier import verify_email
 
 logger = get_task_logger(__name__)
 
-# Configure Celery with Redis broker and backend
+# ── Celery app ────────────────────────────────────────────────────────────────
 redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 celery_app = Celery(
     "email_verifier",
     broker=redis_url,
-    backend=redis_url
+    backend=redis_url,
 )
 
-# High Concurrency & Stability Tuning
 celery_app.conf.update(
-    task_serializer='json',
-    accept_content=['json'],
-    result_serializer='json',
-    timezone='UTC',
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    timezone="UTC",
     enable_utc=True,
-    worker_prefetch_multiplier=1, # Perfect for batch grouping, prevents memory hogs
-    worker_concurrency=10, # Allow 10 processes concurrently
-    task_track_started=True
+    worker_prefetch_multiplier=1,   # prevents memory hogs with large batches
+    worker_concurrency=4,           # safe default; override via --concurrency CLI flag
+    task_track_started=True,
+    task_acks_late=True,            # re-queue task if worker dies mid-flight
+    worker_lost_wait=10,
 )
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+BULK_CHUNK_SIZE = 2000
+BULK_CONCURRENCY = 50
+JOBS_DIR = os.path.join(os.path.dirname(__file__), "uploads", "jobs")
+
+
+def _ensure_jobs_dir():
+    os.makedirs(JOBS_DIR, exist_ok=True)
+
+
+def _cache_update(job_id: str, data: dict, ttl: int = 86400):
+    """Synchronous Redis hash update — used inside Celery tasks (no async loop)."""
+    try:
+        import redis as _redis
+        r = _redis.from_url(redis_url, decode_responses=True)
+        r.hset(f"job:{job_id}", mapping={str(k): str(v) for k, v in data.items()})
+        r.expire(f"job:{job_id}", ttl)
+    except Exception as exc:
+        logger.warning(f"Redis update failed for job {job_id}: {exc}")
+
+
+def _build_email_result_obj(r: dict, user_id: int, file_id: Optional[int]):
+    """Build an EmailResult ORM object without importing at module level."""
+    from database import EmailResult
+    return EmailResult(
+        user_id=user_id,
+        file_id=file_id,
+        email=r.get("email", ""),
+        status=r.get("status", "UNKNOWN"),
+        score=int(r.get("quality_score", 0) or 0),
+        syntax_valid=bool(r.get("syntax", False)),
+        is_disposable=bool(r.get("disposable", False)),
+        mx_found=bool(r.get("mx", False)),
+        smtp_response=None,
+        verified_at=datetime.utcnow(),
+    )
+
+
+def _flush_to_db(rows: list, batch_size: int = 100):
+    """Persist a list of EmailResult objects to the DB in batches."""
+    if not rows:
+        return
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        for i in range(0, len(rows), batch_size):
+            db.bulk_save_objects(rows[i : i + batch_size])
+            db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.warning(f"DB flush error: {exc}")
+    finally:
+        db.close()
+
+
+# ── Bulk-job Celery task ──────────────────────────────────────────────────────
+@celery_app.task(
+    bind=True,
+    name="process_bulk_job",
+    max_retries=0,          # don't auto-retry — jobs can be massive
+    time_limit=7200,        # hard kill after 2 hrs
+    soft_time_limit=6900,   # SoftTimeLimitExceeded raised 5 min before hard kill
+)
+def process_bulk_job(
+    self,
+    job_id: str,
+    emails: list,
+    user_id: int,
+    file_id: Optional[int] = None,
+):
+    """
+    Celery task: verifies a large list of emails, writes a CSV result file,
+    persists every result to email_results, and updates user_files + Redis cache.
+
+    Dispatched by POST /api/bulk-verify-large.
+    Progress tracked in Redis hash  job:{job_id}.
+    """
+    _ensure_jobs_dir()
+
+    total = len(emails)
+    results_path = os.path.join(JOBS_DIR, f"{job_id}.csv")
+
+    # Mark as processing
+    _cache_update(job_id, {"status": "processing", "processed": 0, "total": total})
+
+    # Update UserFile status
+    try:
+        from database import SessionLocal, UserFile
+        db = SessionLocal()
+        try:
+            uf = db.query(UserFile).filter(UserFile.id == file_id).first() if file_id else None
+            if uf:
+                uf.status = "processing"
+                db.commit()
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(f"Could not update UserFile to processing: {exc}")
+
+    async def _run_chunk(chunk: list) -> list:
+        sem = asyncio.Semaphore(BULK_CONCURRENCY)
+
+        async def bounded(email: str):
+            async with sem:
+                return await verify_email(email)
+
+        return await asyncio.gather(*[bounded(e) for e in chunk], return_exceptions=True)
+
+    try:
+        with open(results_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "email", "status", "quality_score",
+                "syntax", "mx", "smtp", "catch_all",
+                "disposable", "role", "spf", "dmarc", "details",
+            ])
+
+            processed = 0
+            for start in range(0, total, BULK_CHUNK_SIZE):
+                chunk = emails[start : start + BULK_CHUNK_SIZE]
+                results = asyncio.run(_run_chunk(chunk))
+
+                db_rows = []
+                for r in results:
+                    if isinstance(r, Exception):
+                        writer.writerow(["", "ERROR", 0, False, False,
+                                         False, False, False, False, False, False, str(r)])
+                    else:
+                        writer.writerow([
+                            r.get("email", ""),
+                            r.get("status", ""),
+                            r.get("quality_score", 0),
+                            r.get("syntax", False),
+                            r.get("mx", False),
+                            r.get("smtp", False),
+                            r.get("catch_all", False),
+                            r.get("disposable", False),
+                            r.get("role", False),
+                            r.get("spf", False),
+                            r.get("dmarc", False),
+                            r.get("details", ""),
+                        ])
+                        db_rows.append(_build_email_result_obj(r, user_id, file_id))
+
+                # Persist this chunk to DB
+                _flush_to_db(db_rows)
+
+                processed += len(chunk)
+                _cache_update(job_id, {"status": "processing", "processed": processed})
+                logger.info(f"[{job_id}] {processed}/{total} processed")
+
+        # ── Job complete ──────────────────────────────────────────────────────
+        _cache_update(job_id, {"status": "completed", "processed": total})
+
+        try:
+            from database import SessionLocal, UserFile
+            db = SessionLocal()
+            try:
+                uf = db.query(UserFile).filter(UserFile.id == file_id).first() if file_id else None
+                if uf:
+                    uf.status = "completed"
+                    uf.processed_count = total
+                    uf.completed_at = datetime.utcnow()
+                    db.commit()
+            finally:
+                db.close()
+        except Exception as exc:
+            logger.warning(f"Could not update UserFile to completed: {exc}")
+
+        logger.info(f"[{job_id}] Bulk job finished — {total} emails.")
+        return {"job_id": job_id, "total": total, "status": "completed"}
+
+    except Exception as exc:
+        logger.error(f"[{job_id}] Bulk job FAILED: {exc}", exc_info=True)
+        _cache_update(job_id, {"status": "failed", "error": str(exc)})
+
+        try:
+            from database import SessionLocal, UserFile
+            db = SessionLocal()
+            try:
+                uf = db.query(UserFile).filter(UserFile.id == file_id).first() if file_id else None
+                if uf:
+                    uf.status = "failed"
+                    db.commit()
+            finally:
+                db.close()
+        except Exception:
+            pass
+
+        raise  # let Celery mark task as FAILURE
+
+
+# ── Original small-batch tasks (kept intact) ──────────────────────────────────
 @celery_app.task(name="verify_single_email")
 def verify_single_email(email: str):
-    """
-    Background wrapper for a single email verification
-    """
+    """Background wrapper for a single email verification."""
     logger.info(f"Processing single email: {email}")
     return asyncio.run(verify_email(email))
+
 
 @celery_app.task(bind=True, name="verify_batch_emails", max_retries=3)
 def verify_batch_emails(self, emails: list, completed_results: list = None):
     """
-    Background wrapper for bulk email verification grouping. Handles 50-100 items per task.
+    Background wrapper for bulk email verification grouping.
+    Handles 50-100 items per task, with greylisted-email retry logic.
     """
     completed_results = completed_results or []
     logger.info(f"Processing batch of {len(emails)} emails (Task ID: {self.request.id})")
-    
+
     async def process():
         sem = asyncio.Semaphore(50)
+
         async def bounded_verify(e):
             async with sem:
                 return await verify_email(e)
-        
+
         tasks = [bounded_verify(e) for e in emails]
         return await asyncio.gather(*tasks, return_exceptions=True)
-        
+
     results = asyncio.run(process())
-    
+
     newly_completed = []
     greylisted_emails = []
-    
+
     for email_address, r in zip(emails, results):
         if isinstance(r, Exception):
             logger.error(f"Email processed: {email_address} | Status: ERROR | Error: {str(r)}")
             newly_completed.append({
-                "email": email_address, 
-                "status": "ERROR", 
-                "details": str(r), 
+                "email": email_address,
+                "status": "ERROR",
+                "details": str(r),
                 "quality_score": 0,
-                "verification_method": "error"
+                "verification_method": "error",
             })
         else:
             status = r.get("status")
             details = r.get("details", "")
-            logger.info(f"Email processed: {email_address} | Status: {status} | Error: None | Details: {details}")
-            
+            logger.info(f"Email processed: {email_address} | Status: {status} | Details: {details}")
+
             if status == "GREYLISTED":
                 greylisted_emails.append(email_address)
             else:
                 newly_completed.append(r)
-                
-    # Merge older completed retries with current completed
+
     all_completed = completed_results + newly_completed
-    
-    # Retry logic for GREYLISTED
+
     if greylisted_emails:
         logger.warning(f"Found {len(greylisted_emails)} GREYLISTED emails. Retrying in 20 minutes...")
-        # Countdown 1200 seconds = 20 minutes
-        # We pass 'completed_results' so we don't drop the ones that successfully completed!
-        raise self.retry(args=[greylisted_emails], kwargs={"completed_results": all_completed}, countdown=1200)
-        
+        raise self.retry(
+            args=[greylisted_emails],
+            kwargs={"completed_results": all_completed},
+            countdown=1200,
+        )
+
     logger.info(f"Batch completed successfully. Total processed: {len(all_completed)}")
     return all_completed
