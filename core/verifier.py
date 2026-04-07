@@ -45,10 +45,26 @@ ROLE_PATTERNS = [
     r'^dev', r'^office', r'^press', r'^pr', r'^ceo'
 ]
 
-DISPOSABLE_DOMAINS = {
-    "mailinator.com", "tempmail.com", "10minutemail.com", "guerrillamail.com",
-    "yopmail.com", "throwawaymail.com", "dispostable.com", "getairmail.com"
-}
+def _load_disposable_domains() -> set:
+    """Load disposable domains from bundled list file (5000+ domains)."""
+    domains = set()
+    list_path = os.path.join(os.path.dirname(__file__), "data", "disposable_domains.txt")
+    try:
+        with open(list_path, "r", encoding="utf-8") as f:
+            for line in f:
+                domain = line.strip().lower()
+                if domain and not domain.startswith("#"):
+                    domains.add(domain)
+        logger.info(f"Loaded {len(domains)} disposable domains from blocklist.")
+    except Exception as e:
+        logger.warning(f"Could not load disposable domains file: {e}. Using fallback list.")
+        domains = {
+            "mailinator.com", "tempmail.com", "10minutemail.com", "guerrillamail.com",
+            "yopmail.com", "throwawaymail.com", "dispostable.com", "getairmail.com"
+        }
+    return domains
+
+DISPOSABLE_DOMAINS = _load_disposable_domains()
 
 KNOWN_CATCHALL = {
     'yahoo.com', 'yahoo.co.uk', 'yahoo.co.in',
