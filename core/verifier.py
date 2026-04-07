@@ -68,8 +68,10 @@ FREE_EMAIL_DOMAINS = KNOWN_CATCHALL.union({
 
 DNS_SERVERS = ['8.8.8.8', '1.1.1.1', '9.9.9.9', '8.8.4.4']
 
-def async_cache(ttl=3600):
+def async_cache(ttl=3600, maxsize=2048):
+    """In-process LRU-style cache with TTL and a hard size cap to prevent memory leaks."""
     cache = {}
+    order = []
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -80,8 +82,15 @@ def async_cache(ttl=3600):
                     return result
                 else:
                     del cache[key]
+                    if key in order:
+                        order.remove(key)
             result = await func(*args, **kwargs)
             cache[key] = (result, time.time())
+            order.append(key)
+            # Evict oldest entries when over capacity
+            while len(order) > maxsize:
+                oldest = order.pop(0)
+                cache.pop(oldest, None)
             return result
         return wrapper
     return decorator
@@ -334,17 +343,15 @@ async def _check_smtp_rate_limit(domain: str) -> bool:
     """
     Returns True (allowed) or False (rate-limited).
     Uses Redis incr+expire counter keyed per domain per minute window.
-    Falls back to True (allow) if Redis is unavailable, so verifier never
-    blocks completely just because Redis is down.
+    Uses the shared async Redis pool — no new connections created per call.
+    Falls back to True (allow) if Redis is unavailable.
     """
     key = f"smtp_rate:{domain}"
     try:
-        import redis as _redis
-        import os as _os
-        r = _redis.from_url(_os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0"), decode_responses=True)
-        count = r.incr(key)
+        r = get_redis()
+        count = await r.incr(key)
         if count == 1:
-            r.expire(key, 60)   # start the 60-second window on first hit
+            await r.expire(key, 60)   # start the 60-second window on first hit
         if count > SMTP_RATE_LIMIT:
             logger.warning(f"SMTP rate limit reached for {domain} ({count}/{SMTP_RATE_LIMIT} per min)")
             return False

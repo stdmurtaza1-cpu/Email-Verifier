@@ -1,5 +1,7 @@
 import secrets
 import hashlib
+import asyncio
+import json
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
@@ -16,11 +18,30 @@ import random
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import smtplib
+from cache import get_redis
 
 limiter = Limiter(key_func=get_remote_address)
 
-_pending_signups = {}  # In-memory dict as requested. For multi-worker production, Redis is recommended.
-_pending_resets = {}
+OTP_TTL = 600  # 10 minutes in seconds
+
+async def _otp_set(namespace: str, email: str, data: dict):
+    r = get_redis()
+    await r.set(f"otp:{namespace}:{email}", json.dumps(data), ex=OTP_TTL)
+
+async def _otp_get(namespace: str, email: str) -> Optional[dict]:
+    r = get_redis()
+    val = await r.get(f"otp:{namespace}:{email}")
+    if val:
+        return json.loads(val)
+    return None
+
+async def _otp_update(namespace: str, email: str, data: dict):
+    r = get_redis()
+    await r.set(f"otp:{namespace}:{email}", json.dumps(data), ex=OTP_TTL)
+
+async def _otp_delete(namespace: str, email: str):
+    r = get_redis()
+    await r.delete(f"otp:{namespace}:{email}")
 
 SMTP_EMAIL = os.getenv("SMTP_EMAIL", "std.murtaza1@gmail.com").strip('"\'')
 SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD", "sceh mopw mvje wmhc").strip('"\'')
@@ -70,12 +91,14 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-def get_password_hash(password: str) -> str:
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+async def get_password_hash(password: str) -> str:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, lambda: bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8'))
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+async def verify_password(plain_password: str, hashed_password: str) -> bool:
+    loop = asyncio.get_running_loop()
     try:
-        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+        return await loop.run_in_executor(None, lambda: bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8')))
     except Exception:
         return False
 
@@ -95,17 +118,15 @@ async def register(request: Request, user_data: UserAuthDTO, background_tasks: B
     db_user = db.query(User).filter(User.email == user_data.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-        
+
     otp = str(random.randint(100000, 999999))
-    hashed_password = get_password_hash(user_data.password)
-    expires_at = datetime.utcnow() + timedelta(minutes=10)
-    
-    _pending_signups[user_data.email] = {
+    hashed_password = await get_password_hash(user_data.password)
+
+    await _otp_set("signup", user_data.email, {
         "otp": otp,
         "password_hash": hashed_password,
-        "expires_at": expires_at,
         "attempts": 0
-    }
+    })
     
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 30px; border: 1px solid #eee; border-radius: 10px;">
@@ -133,39 +154,35 @@ class OTPVerifyDTO(BaseModel):
 
 @router.post("/verify-otp", response_model=Token)
 @limiter.limit("5/minute")
-def verify_otp(request: Request, data: OTPVerifyDTO, db: Session = Depends(get_db)):
-    if data.email not in _pending_signups:
+async def verify_otp(request: Request, data: OTPVerifyDTO, db: Session = Depends(get_db)):
+    pending = await _otp_get("signup", data.email)
+    if not pending:
         raise HTTPException(status_code=400, detail="No pending registration found for this email.")
-        
-    pending = _pending_signups[data.email]
-    
-    if datetime.utcnow() > pending["expires_at"]:
-        del _pending_signups[data.email]
-        raise HTTPException(status_code=400, detail="OTP has expired. Please register again.")
-        
+
     if pending["attempts"] >= 3:
-        del _pending_signups[data.email]
+        await _otp_delete("signup", data.email)
         raise HTTPException(status_code=400, detail="Maximum OTP attempts exceeded. Please register again.")
-        
+
     if pending["otp"] != data.otp:
         pending["attempts"] += 1
+        await _otp_update("signup", data.email, pending)
         raise HTTPException(status_code=400, detail=f"Invalid OTP. {3 - pending['attempts']} attempts remaining.")
-        
+
     raw_key = "evs_" + secrets.token_urlsafe(32)
     hashed_key = hashlib.sha256(raw_key.encode()).hexdigest()
-    
+
     new_user = User(
-        email=data.email, 
-        password_hash=pending["password_hash"], 
-        credits=100, 
+        email=data.email,
+        password_hash=pending["password_hash"],
+        credits=100,
         api_key=hashed_key
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
-    del _pending_signups[data.email]
-    
+
+    await _otp_delete("signup", data.email)
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": new_user.email}, expires_delta=access_token_expires
@@ -174,9 +191,9 @@ def verify_otp(request: Request, data: OTPVerifyDTO, db: Session = Depends(get_d
 
 @router.post("/login", response_model=Token)
 @limiter.limit("20/minute")
-def login(request: Request, user_data: UserAuthDTO, db: Session = Depends(get_db)):
+async def login(request: Request, user_data: UserAuthDTO, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
-    if not user or not verify_password(user_data.password, user.password_hash):
+    if not user or not await verify_password(user_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -281,13 +298,11 @@ async def forgot_password(request: Request, data: ForgotPasswordDTO, background_
     user = db.query(User).filter(User.email == data.email).first()
     if user:
         otp = str(random.randint(100000, 999999))
-        expires_at = datetime.utcnow() + timedelta(minutes=10)
-        
-        _pending_resets[data.email] = {
+
+        await _otp_set("reset", data.email, {
             "otp": otp,
-            "expires_at": expires_at,
             "attempts": 0
-        }
+        })
         
         html_content = f"""
         <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 30px; border: 1px solid #eee; border-radius: 10px;">
@@ -316,34 +331,30 @@ class ResetPasswordDTO(BaseModel):
 
 @router.post("/reset-password")
 @limiter.limit("5/minute")
-def reset_password(request: Request, data: ResetPasswordDTO, db: Session = Depends(get_db)):
+async def reset_password(request: Request, data: ResetPasswordDTO, db: Session = Depends(get_db)):
     if len(data.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-        
-    if data.email not in _pending_resets:
+
+    pending = await _otp_get("reset", data.email)
+    if not pending:
         raise HTTPException(status_code=400, detail="No pending password reset found for this email.")
-        
-    pending = _pending_resets[data.email]
-    
-    if datetime.utcnow() > pending["expires_at"]:
-        del _pending_resets[data.email]
-        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
-        
+
     if pending["attempts"] >= 3:
-        del _pending_resets[data.email]
+        await _otp_delete("reset", data.email)
         raise HTTPException(status_code=400, detail="Maximum OTP attempts exceeded. Please try again.")
-        
+
     if pending["otp"] != data.otp:
         pending["attempts"] += 1
+        await _otp_update("reset", data.email, pending)
         raise HTTPException(status_code=400, detail=f"Invalid OTP. {3 - pending['attempts']} attempts remaining.")
-        
+
     user = db.query(User).filter(User.email == data.email).first()
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
-        
-    user.password_hash = get_password_hash(data.new_password)
+
+    user.password_hash = await get_password_hash(data.new_password)
     db.commit()
-    
-    del _pending_resets[data.email]
-    
+
+    await _otp_delete("reset", data.email)
+
     return {"message": "Password updated. Please login with your new password."}

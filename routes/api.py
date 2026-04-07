@@ -37,32 +37,42 @@ def track_user_analytics(user: User, amount: int) -> None:
     user.total_verifications += amount
     user.monthly_verifications += amount
 
-def check_and_deduct_credits(current_user: User, amount: int) -> None:
+def check_and_deduct_credits(current_user: User, amount: int, db: Session = None) -> None:
     if hasattr(current_user, 'is_linked_session'):
         child = current_user.child_user_obj
+        # Re-fetch with row lock to prevent race conditions under high traffic
+        if db:
+            child = db.query(User).filter(User.id == child.id).with_for_update().first()
+            current_user_locked = db.query(User).filter(User.id == current_user.id).with_for_update().first()
+        else:
+            current_user_locked = current_user
         today = date.today()
         if child.partner_limit_reset_date != today:
             child.partner_credits_used_today = 0
             child.partner_limit_reset_date = today
-            
+
         if child.partner_credits_used_today + amount > child.partner_daily_limit:
             rem = max(0, child.partner_daily_limit - child.partner_credits_used_today)
             raise HTTPException(status_code=403, detail=f"Partner daily limit reached. You can use {rem} more today.")
-            
-        if current_user.credits < amount:
+
+        if current_user_locked.credits < amount:
             raise HTTPException(status_code=403, detail="Partner has insufficient credits.")
-            
+
         child.partner_credits_used_today += amount
-        current_user.credits -= amount
-        
-        # Track analytics for the shared child executing it, and the master
+        current_user_locked.credits -= amount
+
         track_user_analytics(child, amount)
-        track_user_analytics(current_user, amount)
+        track_user_analytics(current_user_locked, amount)
     else:
-        if current_user.credits < amount:
-            raise HTTPException(status_code=403, detail=f"Insufficient credits. You have {current_user.credits} but need {amount}.")
-        current_user.credits -= amount
-        track_user_analytics(current_user, amount)
+        # Re-fetch with row lock to prevent race conditions under high traffic
+        if db:
+            locked_user = db.query(User).filter(User.id == current_user.id).with_for_update().first()
+        else:
+            locked_user = current_user
+        if locked_user.credits < amount:
+            raise HTTPException(status_code=403, detail=f"Insufficient credits. You have {locked_user.credits} but need {amount}.")
+        locked_user.credits -= amount
+        track_user_analytics(locked_user, amount)
 
 def get_display_credits(current_user: User) -> int:
     if hasattr(current_user, 'is_linked_session'):
@@ -142,8 +152,9 @@ async def generate_api_key(db: Session = Depends(get_db), current_user: User = D
     }
 
 @router.post("/verify")
+@limiter.limit("300/minute")
 async def verify_single(request: Request, payload: VerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    check_and_deduct_credits(current_user, 1)
+    check_and_deduct_credits(current_user, 1, db)
     db.commit()
 
     result = await verify_email(payload.email)
@@ -183,9 +194,9 @@ async def verify_bulk(request: Request, file: Optional[UploadFile] = File(None),
     if len(emails) > 2000:
         raise HTTPException(status_code=400, detail="For more than 2000 emails use POST /api/bulk-verify-large with a file. Max 1 million.")
         
-    check_and_deduct_credits(current_user, len(emails))
+    check_and_deduct_credits(current_user, len(emails), db)
     db.commit()
-        
+
     # Process concurrently using the custom engine with connection limits
     sem = asyncio.Semaphore(50)
     
@@ -243,7 +254,7 @@ async def verify_bulk_large(
     if not emails:
         raise HTTPException(status_code=400, detail="No valid emails found.")
 
-    check_and_deduct_credits(current_user, len(emails))
+    check_and_deduct_credits(current_user, len(emails), db)
     db.commit()
 
     user_id = getattr(current_user, 'original_id', current_user.id)
@@ -346,9 +357,9 @@ async def verify_batch(request: Request, payload: BatchVerifyRequest, current_us
     # Limit batch size to 5 as requested
     emails = payload.emails[:5]
     
-    check_and_deduct_credits(current_user, len(emails))
+    check_and_deduct_credits(current_user, len(emails), db)
     db.commit()
-    
+
     tasks = [verify_email(email) for email in emails]
     results = await asyncio.gather(*tasks)
 
@@ -367,7 +378,7 @@ async def verify_batch(request: Request, payload: BatchVerifyRequest, current_us
 
 @router.post("/verify-batch-async")
 async def verify_batch_async(request: Request, payload: BatchVerifyRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    check_and_deduct_credits(current_user, len(payload.emails))
+    check_and_deduct_credits(current_user, len(payload.emails), db)
     db.commit()
 
     # Dispatch to Celery Queue with Chunking

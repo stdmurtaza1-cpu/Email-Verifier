@@ -13,5 +13,5 @@ for i in $(seq 1 10); do
     sleep 0.5
 done
 
-# Start FastAPI app on port 5000
-exec uvicorn main:app --host 0.0.0.0 --port 5000 --log-level info
+# Start FastAPI app on port 5000 with multiple workers for high traffic
+exec uvicorn main:app --host 0.0.0.0 --port 5000 --log-level info --workers 4
