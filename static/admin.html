@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="admin.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 </head>
 <body>
     
@@ -43,6 +45,9 @@
             </div>
             <nav style="display: flex; flex-direction: column; gap: 0.5rem; padding: 1.5rem;">
                 <button class="nav-btn active" data-target="panel-users">👥 Users</button>
+                <button class="nav-btn" data-target="panel-workers">💻 Server Grid</button>
+                <button class="nav-btn" data-target="panel-ips">🌐 SMTP Proxies</button>
+                <button class="nav-btn" data-target="panel-pages">📝 Pages (CMS)</button>
                 <button class="nav-btn" data-target="panel-stats">📊 Statistics</button>
                 <button class="nav-btn" data-target="panel-keys">🔑 API Keys</button>
                 <button id="admin-logout-btn" class="nav-btn logout" style="margin-top: auto; color: var(--danger); border-top: 1px solid var(--border-color); padding-top: 1rem;">🚪 Logout</button>
@@ -68,6 +73,8 @@
                                     <th style="padding: 1rem;">Plan</th>
                                     <th style="padding: 1rem;">Credits</th>
                                     <th style="padding: 1rem;">Join Date</th>
+                                    <th style="padding: 1rem;">Tracked Pings (Total)</th>
+                                    <th style="padding: 1rem;">MTD Volume</th>
                                     <th style="padding: 1rem;">Active</th>
                                     <th style="padding: 1rem;">Actions</th>
                                 </tr>
@@ -80,9 +87,79 @@
                 </div>
             </div>
 
+            <!-- WORKERS PANEL -->
+            <div id="panel-workers" class="admin-panel hidden">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>Distributed Architecture Grid</h2>
+                    <div class="badge" style="background: rgba(255,50,50,0.1); border: 1px solid var(--danger); color: white; padding: 0.6rem 1rem; border-radius: 8px;">Parent Interventions: <span id="stats-worker-crashes" style="font-weight: 800; color: var(--danger);">0</span></div>
+                </div>
+                
+                <div class="card glass">
+                    <div class="table-container" style="max-height: 70vh; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead style="position: sticky; top: 0; background: rgba(0,0,0,0.8);">
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <th style="padding: 1rem;">Worker Hostname Identity</th>
+                                    <th style="padding: 1rem;">Network Bound Status</th>
+                                    <th style="padding: 1rem;">Targeted Active Mapping limits</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-workers-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SMTP PROXIES PANEL -->
+            <div id="panel-ips" class="admin-panel hidden">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>SMTP Outbound Proxy Array</h2>
+                    <button class="btn" style="background: var(--primary); color: #000; width:auto; padding: 0.6rem 1.2rem; font-weight: bold;" onclick="openAddIpModal()">+ Add Physical IP Proxy</button>
+                </div>
+                
+                <div class="card glass">
+                    <div class="table-container" style="max-height: 70vh; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead style="position: sticky; top: 0; background: rgba(0,0,0,0.8);">
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <th style="padding: 1rem;">Physical Server Target</th>
+                                    <th style="padding: 1rem;">Live Health Integrity Score</th>
+                                    <th style="padding: 1rem;">Master Execution Status</th>
+                                    <th style="padding: 1rem;">Worker Pool Delegation</th>
+                                    <th style="padding: 1rem;">Administrative Hooks & Freezing</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-ips-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- STATISTICS PANEL -->
             <div id="panel-stats" class="admin-panel hidden">
                 <h2>Platform Statistics</h2>
+                
+                <h3 style="margin-top:2rem; font-size: 1rem; color: var(--text-muted);">Cluster Global Telemetry Metrics</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 1rem; margin-bottom: 2rem;">
+                    <div class="card glass text-center" style="padding: 2rem; border-color: rgba(0,242,96,0.3);">
+                        <h4 style="color: var(--text-muted); font-size: 0.9rem;">Nodes Discovered Online</h4>
+                        <div id="cluster-total-workers" style="font-size: 3rem; font-weight: 800; color: var(--success);">0</div>
+                    </div>
+                    <div class="card glass text-center" style="padding: 2rem; border-color: rgba(5,117,230,0.3);">
+                        <h4 style="color: var(--text-muted); font-size: 0.9rem;">Global Provisioned active IPs</h4>
+                        <div id="cluster-total-ips" style="font-size: 3rem; font-weight: 800; color: var(--primary);">0</div>
+                    </div>
+                    <div class="card glass text-center" style="padding: 2rem; border-color: rgba(255,179,0,0.3);">
+                        <h4 style="color: var(--text-muted); font-size: 0.9rem;">Autonomous Success Target Ratio</h4>
+                        <div id="cluster-success-rate" style="font-size: 3rem; font-weight: 800; color: #ffb300;">0%</div>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top:2rem; font-size: 1rem; color: var(--text-muted);">Platform Usage Mapping</h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
                     <div class="card glass text-center" style="padding: 2rem;">
                         <h4 style="color: var(--text-muted); font-size: 0.9rem;">Total Users</h4>
@@ -128,6 +205,34 @@
                                 <!-- Populated dynamically -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGES / CMS PANEL -->
+            <div id="panel-pages" class="admin-panel hidden">
+                <h2>Page Content Editor</h2>
+                <div class="card glass" style="margin-top: 1.5rem; padding: 2rem;">
+                    <div style="display: flex; gap: 1rem; margin-bottom: 2rem; align-items: center;">
+                        <label style="color: var(--text-muted);">Select Page to Edit:</label>
+                        <select id="admin-page-selector" style="padding: 0.8rem; border-radius: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--border-color); min-width: 250px;">
+                            <option value="home">Home Page (Extra Details)</option>
+                            <option value="pricing">Pricing (Extra Details)</option>
+                            <option value="contact">Contact (Extra Details)</option>
+                            <option value="privacy">Privacy Policy</option>
+                        </select>
+                        <button class="btn" style="background: var(--secondary); color: #000; padding: 0.8rem 1.5rem;" onclick="adminLoadPageContent()">Load Content</button>
+                    </div>
+
+                    <div style="background: white; color: black; border-radius: 8px; overflow: hidden;">
+                        <div id="editor-container" style="height: 400px;"></div>
+                    </div>
+                    
+                    <div style="margin-top: 1.5rem; text-align: right;">
+                        <button class="btn" id="admin-save-page-btn" style="background: var(--primary); color: #000; padding: 1rem 2rem; font-weight: bold;" onclick="adminSavePageContent()">
+                            <span id="admin-save-page-txt">Save Page Content</span>
+                            <div class="loader hidden" id="admin-save-page-loader"></div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -180,6 +285,34 @@
         </div>
     </div>
     
+    <!-- ADD IP MODAL -->
+    <div id="add-ip-modal-overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 1000; display: flex; justify-content: center; align-items: center;">
+        <div class="card glass" style="width: 100%; max-width: 400px; position: relative;">
+            <button class="close-user-modal" style="position: absolute; right: 1rem; top: 1rem; background: transparent; border: none; color: white; font-size: 1.5rem; cursor: pointer;" onclick="document.getElementById('add-ip-modal-overlay').classList.add('hidden')">&times;</button>
+            <h2 style="margin-bottom: 1.5rem; color: var(--primary); font-size: 1.3rem;">Inject New Raw IP Pattern</h2>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <input type="text" id="add-ip-address" placeholder="Physical Address (e.g. 192.168.0.5)" style="padding: 0.8rem; border-radius: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--border-color);">
+                <input type="number" id="add-ip-score" placeholder="Global Health Baseline (Default: 100)" value="100" style="padding: 0.8rem; border-radius: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--border-color);">
+                <button class="btn" style="background: var(--primary); color: #000; width: 100%; padding: 0.8rem; font-weight: bold;" onclick="adminSubmitNewIp()">Launch Node Native Bind</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ASSIGN IP TO WORKER MODAL -->
+    <div id="assign-worker-modal-overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 1100; display: flex; justify-content: center; align-items: center;">
+        <div class="card glass" style="width: 100%; max-width: 400px; position: relative;">
+            <button class="close-user-modal" style="position: absolute; right: 1rem; top: 1rem; background: transparent; border: none; color: white; font-size: 1.5rem; cursor: pointer;" onclick="document.getElementById('assign-worker-modal-overlay').classList.add('hidden')">&times;</button>
+            <h2 style="margin-bottom: 1.5rem; color: var(--primary); font-size: 1.3rem;">Assign Explicit IP Segment</h2>
+            <p style="margin-bottom:1rem;color:var(--text-muted);">Assigning IP: <span id="assign-ip-label" style="color:var(--secondary);font-weight:bold;"></span></p>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <select id="assign-worker-select" style="padding: 0.8rem; border-radius: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--border-color);">
+                    <!-- Dynamic mapped options -->
+                </select>
+                <button class="btn" style="background: var(--secondary); color: #000; width: 100%; padding: 0.8rem; font-weight: bold;" onclick="adminSubmitAssignWorker()">Strict Node Bind</button>
+            </div>
+        </div>
+    </div>
+
     <script src="admin.js"></script>
 </body>
 </html>

@@ -31,6 +31,19 @@ window.showPage = function(pageName) {
     
     // Close mobile menu if open
     DOM.navContainer.classList.remove('show');
+
+    // Fetch Dynamic Content if applicable
+    const dynamicContainer = document.getElementById('dynamic-content-' + pageName);
+    if (dynamicContainer) {
+        fetch(`/api/page/${pageName}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.html_content) {
+                    dynamicContainer.innerHTML = data.html_content;
+                }
+            })
+            .catch(err => console.error("Could not fetch page content", err));
+    }
 }
 
 const DOM = {
@@ -115,6 +128,37 @@ window.showSignupModal = function() {
     DOM.overlay.classList.remove('hidden');
     DOM.signupModal.classList.remove('hidden');
     DOM.loginModal.classList.add('hidden');
+    document.getElementById('forgot-modal').classList.add('hidden');
+    document.getElementById('otp-modal').classList.add('hidden');
+}
+
+window.showForgotModal = function() {
+    DOM.overlay.classList.remove('hidden');
+    document.getElementById('forgot-modal').classList.remove('hidden');
+    DOM.loginModal.classList.add('hidden');
+    DOM.signupModal.classList.add('hidden');
+    document.getElementById('otp-modal').classList.add('hidden');
+}
+
+window.showOtpModal = function(email, action) {
+    DOM.overlay.classList.remove('hidden');
+    document.getElementById('otp-modal').classList.remove('hidden');
+    DOM.loginModal.classList.add('hidden');
+    DOM.signupModal.classList.add('hidden');
+    document.getElementById('forgot-modal').classList.add('hidden');
+    
+    document.getElementById('otp-email').value = email;
+    document.getElementById('otp-action').value = action;
+    
+    if(action === 'forgot') {
+        document.getElementById('otp-new-password-group').classList.remove('hidden');
+        document.getElementById('otp-new-password-group').style.display = 'flex';
+        document.getElementById('otp-new-pass').required = true;
+    } else {
+        document.getElementById('otp-new-password-group').classList.add('hidden');
+        document.getElementById('otp-new-password-group').style.display = 'none';
+        document.getElementById('otp-new-pass').required = false;
+    }
 }
 
 function closeModals() {
@@ -180,11 +224,12 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
     errObj.classList.add('hidden');
 
     try {
+        const email = document.getElementById('signup-email').value;
         const res = await fetch('/api/register', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                email: document.getElementById('signup-email').value,
+                email: email,
                 password: document.getElementById('signup-pass').value
             })
         });
@@ -192,11 +237,7 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
         const data = await res.json();
         if(!res.ok) throw new Error(data.detail || "Registration Failed.");
 
-        authToken = data.access_token;
-        localStorage.setItem('ninja_jwt', authToken);
-        await initDash();
-        closeModals();
-        showPage('dashboard');
+        showOtpModal(email, 'signup');
         
     } catch(err) {
         errObj.textContent = err.message;
@@ -206,6 +247,105 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
         loader.classList.add('hidden');
     }
 });
+
+const forgotForm = document.getElementById('forgot-form');
+if(forgotForm) {
+    forgotForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btnText = document.getElementById('forgot-btn-txt');
+        const loader = document.getElementById('forgot-loader');
+        const msgObj = document.getElementById('forgot-msg');
+        
+        btnText.classList.add('hidden');
+        loader.classList.remove('hidden');
+        msgObj.classList.add('hidden');
+        
+        try {
+            const email = document.getElementById('forgot-email').value;
+            const res = await fetch('/api/forgot-password', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email: email })
+            });
+
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.detail || "Failed to send reset code.");
+
+            showOtpModal(email, 'forgot');
+
+        } catch(err) {
+            msgObj.textContent = err.message;
+            msgObj.style.color = "var(--danger)";
+            msgObj.style.background = "rgba(255,0,0,0.1)";
+            msgObj.classList.remove('hidden');
+        } finally {
+            btnText.classList.remove('hidden');
+            loader.classList.add('hidden');
+        }
+    });
+}
+
+const otpForm = document.getElementById('otp-form');
+if(otpForm) {
+    otpForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btnText = document.getElementById('otp-btn-txt');
+        const loader = document.getElementById('otp-loader');
+        const errObj = document.getElementById('otp-error');
+        const successObj = document.getElementById('otp-success');
+        
+        btnText.classList.add('hidden');
+        loader.classList.remove('hidden');
+        errObj.classList.add('hidden');
+        successObj.classList.add('hidden');
+        
+        try {
+            const email = document.getElementById('otp-email').value;
+            const action = document.getElementById('otp-action').value;
+            const otpCode = document.getElementById('otp-code').value;
+            
+            if(action === 'forgot') {
+                const newPass = document.getElementById('otp-new-pass').value;
+                const res = await fetch('/api/reset-password', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email: email, otp: otpCode, new_password: newPass })
+                });
+
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.detail || "Reset Failed.");
+                
+                successObj.textContent = "Password updated! Redirecting to login...";
+                successObj.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    showLoginModal();
+                }, 2000);
+            } else {
+                const res = await fetch('/api/verify-otp', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email: email, otp: otpCode })
+                });
+
+                const data = await res.json();
+                if(!res.ok) throw new Error(data.detail || "Verification Failed.");
+                
+                authToken = data.access_token;
+                localStorage.setItem('ninja_jwt', authToken);
+                await initDash();
+                closeModals();
+                showPage('dashboard');
+            }
+        } catch(err) {
+            errObj.textContent = err.message;
+            errObj.classList.remove('hidden');
+        } finally {
+            btnText.classList.remove('hidden');
+            loader.classList.add('hidden');
+        }
+    });
+}
 
 document.getElementById('user-logout-btn').addEventListener('click', () => {
     localStorage.removeItem('ninja_jwt');
@@ -242,6 +382,13 @@ async function refreshUserState() {
         document.getElementById('dash-credits-huge').textContent = currentUser.credits.toLocaleString();
         document.getElementById('dash-plan-huge').textContent = currentUser.plan;
         
+        if(document.getElementById('dash-total-verifications')) {
+            document.getElementById('dash-total-verifications').textContent = (currentUser.total_verifications || 0).toLocaleString();
+        }
+        if(document.getElementById('dash-monthly-verifications')) {
+            document.getElementById('dash-monthly-verifications').textContent = (currentUser.monthly_verifications || 0).toLocaleString();
+        }
+
         if(document.getElementById('dash-api-key')) {
             document.getElementById('dash-api-key').value = currentUser.api_key;
         }
@@ -1247,42 +1394,3 @@ window.showForgotModal = function() {
     if (fm) fm.classList.remove('hidden');
 }
 
-const forgotForm = document.getElementById('forgot-form');
-if(forgotForm) {
-    forgotForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btnText = document.getElementById('forgot-btn-txt');
-        const loader = document.getElementById('forgot-loader');
-        const msgObj = document.getElementById('forgot-msg');
-        
-        btnText.classList.add('hidden');
-        loader.classList.remove('hidden');
-        msgObj.classList.add('hidden');
-
-        try {
-            const res = await fetch('/api/forgot-password', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    email: document.getElementById('forgot-email').value
-                })
-            });
-
-            const data = await res.json();
-            if(!res.ok) throw new Error(data.detail || "Request Failed.");
-
-            msgObj.textContent = data.message;
-            msgObj.style.color = "var(--success)";
-            msgObj.style.backgroundColor = "rgba(0,255,0,0.1)";
-            msgObj.classList.remove('hidden');
-        } catch(err) {
-            msgObj.textContent = err.message;
-            msgObj.style.color = "var(--danger)";
-            msgObj.style.backgroundColor = "rgba(255,0,0,0.1)";
-            msgObj.classList.remove('hidden');
-        } finally {
-            btnText.classList.remove('hidden');
-            loader.classList.add('hidden');
-        }
-    });
-}

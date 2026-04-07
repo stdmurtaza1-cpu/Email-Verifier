@@ -1,6 +1,6 @@
 import secrets
 import hashlib
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
@@ -13,14 +13,41 @@ import bcrypt
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 import random
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import smtplib
 
 limiter = Limiter(key_func=get_remote_address)
 
 _pending_signups = {}  # In-memory dict as requested. For multi-worker production, Redis is recommended.
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "verify@yourdomain.com")
+_pending_resets = {}
+
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "std.murtaza1@gmail.com").strip('"\'')
+SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD", "sceh mopw mvje wmhc").strip('"\'')
+FROM_EMAIL = os.getenv("FROM_EMAIL", "std.murtaza1@gmail.com").strip('"\'')
+
+def send_email_smtp(to_email: str, subject: str, html_content: str):
+    if not SMTP_EMAIL or not SMTP_APP_PASSWORD:
+        print(f"DEV MODE [No SMTP creds] - Email to {to_email} | Subject: {subject} | Content: {html_content}")
+        return
+        
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = FROM_EMAIL
+        msg["To"] = to_email
+        
+        part = MIMEText(html_content, "html")
+        msg.attach(part)
+        
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=15)
+        server.starttls()
+        server.login(SMTP_EMAIL, SMTP_APP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+    except Exception as e:
+        print(f"Failed to send email to {to_email}: {e}")
+        raise e
 
 router = APIRouter()
 
@@ -64,7 +91,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 @router.post("/register")
 @limiter.limit("10/hour")
-async def register(request: Request, user_data: UserAuthDTO, db: Session = Depends(get_db)):
+async def register(request: Request, user_data: UserAuthDTO, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user_data.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -81,30 +108,22 @@ async def register(request: Request, user_data: UserAuthDTO, db: Session = Depen
     }
     
     html_content = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #333; text-align: center;">Welcome to Email Verifier Ninja!</h2>
-        <p style="color: #555; font-size: 16px;">To complete your registration and receive your 100 free credits, please verify your email address.</p>
-        <div style="text-align: center; margin: 30px 0;">
-            <p style="font-size: 14px; color: #888; margin-bottom: 5px;">Your Verification Code</p>
-            <h1 style="color: #4A90E2; letter-spacing: 5px; margin: 0;">{otp}</h1>
+    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 30px; border: 1px solid #eee; border-radius: 10px;">
+        <h2 style="color: #333; text-align: center;">VerifyNinja</h2>
+        <p style="color: #555; text-align: center;">Your verification code is:</p>
+        <div style="text-align: center; margin: 30px 0; padding: 20px; background: #f5f5f5; border-radius: 8px;">
+            <span style="color: #4A90E2; font-size: 48px; font-weight: bold; letter-spacing: 8px;">
+                {otp}
+            </span>
         </div>
-        <p style="color: #888; font-size: 12px; text-align: center;">This code will expire in 10 minutes.</p>
+        <p style="color: #999; text-align: center; font-size: 13px;">This code expires in 10 minutes. Do not share this code with anyone.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #ccc; text-align: center; font-size: 11px;">VerifyNinja — Professional Email Validation</p>
     </div>
     """
     
-    if SENDGRID_API_KEY:
-        try:
-            message = Mail(
-                from_email=FROM_EMAIL,
-                to_emails=user_data.email,
-                subject='Your OTP for Email Verifier Ninja',
-                html_content=html_content)
-            sg = SendGridAPIClient(SENDGRID_API_KEY)
-            sg.send(message)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail="Failed to send OTP email. Please try again.")
-    else:
-        print(f"DEV MODE - OTP for {user_data.email}: {otp}")
+    if True: # Always attempt to send email if not in pure dev mode
+        background_tasks.add_task(send_email_smtp, user_data.email, 'VerifyNinja — Your OTP Code', html_content)
         
     return {"message": "OTP sent to your email", "email": user_data.email}
 
@@ -114,7 +133,7 @@ class OTPVerifyDTO(BaseModel):
 
 @router.post("/verify-otp", response_model=Token)
 @limiter.limit("5/minute")
-async def verify_otp(request: Request, data: OTPVerifyDTO, db: Session = Depends(get_db)):
+def verify_otp(request: Request, data: OTPVerifyDTO, db: Session = Depends(get_db)):
     if data.email not in _pending_signups:
         raise HTTPException(status_code=400, detail="No pending registration found for this email.")
         
@@ -155,7 +174,7 @@ async def verify_otp(request: Request, data: OTPVerifyDTO, db: Session = Depends
 
 @router.post("/login", response_model=Token)
 @limiter.limit("20/minute")
-async def login(request: Request, user_data: UserAuthDTO, db: Session = Depends(get_db)):
+def login(request: Request, user_data: UserAuthDTO, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
     if not user or not verify_password(user_data.password, user.password_hash):
         raise HTTPException(
@@ -212,7 +231,9 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
             "api_key": current_user.original_api_key,
             "partner_status": "approved",
             "partner_daily_limit": child.partner_daily_limit,
-            "partner_credits_used_today": used_today
+            "partner_credits_used_today": used_today,
+            "total_verifications": getattr(child, "total_verifications", 0),
+            "monthly_verifications": getattr(child, "monthly_verifications", 0)
         }
     else:
         used_today = getattr(current_user, "partner_credits_used_today", 0) if getattr(current_user, "partner_limit_reset_date", None) == date.today() else 0
@@ -223,7 +244,9 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
             "api_key": getattr(current_user, 'original_api_key', current_user.api_key),
             "partner_status": getattr(current_user, "partner_status", None),
             "partner_daily_limit": getattr(current_user, "partner_daily_limit", None),
-            "partner_credits_used_today": used_today
+            "partner_credits_used_today": used_today,
+            "total_verifications": getattr(current_user, "total_verifications", 0),
+            "monthly_verifications": getattr(current_user, "monthly_verifications", 0)
         }
 
 class AdminAuthDTO(BaseModel):
@@ -254,71 +277,73 @@ class ForgotPasswordDTO(BaseModel):
 
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
-async def forgot_password(request: Request, data: ForgotPasswordDTO, db: Session = Depends(get_db)):
+async def forgot_password(request: Request, data: ForgotPasswordDTO, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if user:
-        import secrets
-        import os
-        from cache import cache_set
-        token = secrets.token_urlsafe(32)
-        await cache_set(f"reset:{token}", user.id, ttl=900)
+        otp = str(random.randint(100000, 999999))
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
         
-        FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8000")
-        reset_link = f"{FRONTEND_URL}/reset-password.html?token={token}"
+        _pending_resets[data.email] = {
+            "otp": otp,
+            "expires_at": expires_at,
+            "attempts": 0
+        }
         
         html_content = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; text-align: center;">
-            <h2 style="color: #333;">Reset Your Password</h2>
-            <p style="color: #555; font-size: 16px;">We received a request to reset your password. Click the button below to set a new password.</p>
-            <div style="margin: 30px 0;">
-                <a href="{reset_link}" style="background-color: #4A90E2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Reset Password</a>
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 30px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #333; text-align: center;">VerifyNinja Reset</h2>
+            <p style="color: #555; text-align: center;">We received a request to reset your password. Here is your verification code:</p>
+            <div style="text-align: center; margin: 30px 0; padding: 20px; background: #f5f5f5; border-radius: 8px;">
+                <span style="color: #4A90E2; font-size: 48px; font-weight: bold; letter-spacing: 8px;">
+                    {otp}
+                </span>
             </div>
-            <p style="color: #888; font-size: 12px;">This link expires in 15 minutes.</p>
-            <p style="color: #888; font-size: 12px; margin-top: 20px;">If you didn't request this, you can safely ignore this email.</p>
+            <p style="color: #999; text-align: center; font-size: 13px;">This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #ccc; text-align: center; font-size: 11px;">VerifyNinja — Professional Email Validation</p>
         </div>
         """
         
-        if SENDGRID_API_KEY:
-            try:
-                from sendgrid import SendGridAPIClient
-                from sendgrid.helpers.mail import Mail
-                message = Mail(
-                    from_email=FROM_EMAIL,
-                    to_emails=user.email,
-                    subject='Password Reset - Email Verifier Ninja',
-                    html_content=html_content)
-                sg = SendGridAPIClient(SENDGRID_API_KEY)
-                sg.send(message)
-            except Exception as e:
-                print(f"Failed to send reset email: {e}")
-        else:
-            print(f"DEV MODE - Reset link for {user.email}: {reset_link}")
+        if True:
+            background_tasks.add_task(send_email_smtp, user.email, 'VerifyNinja — Password Reset OTP', html_content)
 
-    return {"message": "If this email is registered, a reset link has been sent."}
+    return {"message": "If this email is registered, an OTP has been sent."}
 
 class ResetPasswordDTO(BaseModel):
-    token: str
+    email: str
+    otp: str
     new_password: str
 
 @router.post("/reset-password")
 @limiter.limit("5/minute")
-async def reset_password(request: Request, data: ResetPasswordDTO, db: Session = Depends(get_db)):
+def reset_password(request: Request, data: ResetPasswordDTO, db: Session = Depends(get_db)):
     if len(data.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
         
-    from cache import cache_get, cache_delete
-    user_id = await cache_get(f"reset:{data.token}")
-    
-    if not user_id:
-        raise HTTPException(status_code=400, detail="Reset link is invalid or expired")
+    if data.email not in _pending_resets:
+        raise HTTPException(status_code=400, detail="No pending password reset found for this email.")
         
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    pending = _pending_resets[data.email]
+    
+    if datetime.utcnow() > pending["expires_at"]:
+        del _pending_resets[data.email]
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+        
+    if pending["attempts"] >= 3:
+        del _pending_resets[data.email]
+        raise HTTPException(status_code=400, detail="Maximum OTP attempts exceeded. Please try again.")
+        
+    if pending["otp"] != data.otp:
+        pending["attempts"] += 1
+        raise HTTPException(status_code=400, detail=f"Invalid OTP. {3 - pending['attempts']} attempts remaining.")
+        
+    user = db.query(User).filter(User.email == data.email).first()
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
         
     user.password_hash = get_password_hash(data.new_password)
     db.commit()
     
-    await cache_delete(f"reset:{data.token}")
+    del _pending_resets[data.email]
     
     return {"message": "Password updated. Please login with your new password."}

@@ -11,7 +11,7 @@ import os
 import uuid
 from datetime import datetime
 from sqlalchemy.orm import Session
-from database import get_db, SessionLocal, User, EmailResult, UserFile
+from database import get_db, SessionLocal, User, EmailResult, UserFile, PageContent
 from middleware.auth import get_current_user
 from core.verifier import verify_email
 import csv
@@ -25,6 +25,17 @@ from datetime import date
 limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
+
+def track_user_analytics(user: User, amount: int) -> None:
+    current_month_str = datetime.utcnow().strftime('%Y-%m')
+    if getattr(user, 'current_month', None) != current_month_str:
+        user.current_month = current_month_str
+        user.monthly_verifications = 0
+    if not user.total_verifications: user.total_verifications = 0
+    if not user.monthly_verifications: user.monthly_verifications = 0
+    
+    user.total_verifications += amount
+    user.monthly_verifications += amount
 
 def check_and_deduct_credits(current_user: User, amount: int) -> None:
     if hasattr(current_user, 'is_linked_session'):
@@ -43,10 +54,15 @@ def check_and_deduct_credits(current_user: User, amount: int) -> None:
             
         child.partner_credits_used_today += amount
         current_user.credits -= amount
+        
+        # Track analytics for the shared child executing it, and the master
+        track_user_analytics(child, amount)
+        track_user_analytics(current_user, amount)
     else:
         if current_user.credits < amount:
             raise HTTPException(status_code=403, detail=f"Insufficient credits. You have {current_user.credits} but need {amount}.")
         current_user.credits -= amount
+        track_user_analytics(current_user, amount)
 
 def get_display_credits(current_user: User) -> int:
     if hasattr(current_user, 'is_linked_session'):
@@ -423,3 +439,10 @@ async def get_task_status(task_id: str, current_user: User = Depends(get_current
         return {"task_id": task_id, "status": "processing"}
     else:
         return {"task_id": task_id, "status": task_result.state.lower()}
+
+@router.get("/page/{slug}")
+async def get_page_content(slug: str, db: Session = Depends(get_db)):
+    page_content = db.query(PageContent).filter(PageContent.page_slug == slug).first()
+    if not page_content:
+        return {"slug": slug, "html_content": ""}
+    return {"slug": slug, "html_content": page_content.html_content}

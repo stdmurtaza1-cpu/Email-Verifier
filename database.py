@@ -45,6 +45,12 @@ class User(Base):
     partner_daily_limit = Column(Integer, nullable=True) # e.g. 500
     partner_credits_used_today = Column(Integer, default=0)
     partner_limit_reset_date = Column(DateTime, nullable=True)
+    
+    # User Verification Analytics Trackers
+    total_verifications = Column(Integer, default=0)
+    monthly_verifications = Column(Integer, default=0)
+    current_month = Column(String, default=lambda: datetime.datetime.utcnow().strftime('%Y-%m'))
+    
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     subscriptions = relationship("Subscription", back_populates="user")
@@ -98,6 +104,23 @@ class EmailResult(Base):
 
     user = relationship("User", backref="email_results")
     user_file = relationship("UserFile", back_populates="email_results")
+
+class SmtpIp(Base):
+    __tablename__ = "smtp_ips"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    ip_address = Column(String, unique=True, index=True, nullable=False)
+    status = Column(String, default="active") # active, frozen, cooldown
+    health_score = Column(Integer, default=100)
+    last_checked = Column(DateTime, default=datetime.datetime.utcnow)
+
+class PageContent(Base):
+    __tablename__ = "page_contents"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    page_slug = Column(String, unique=True, index=True, nullable=False) # e.g. home, pricing, contact, privacy
+    html_content = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 Base.metadata.create_all(bind=engine)
 

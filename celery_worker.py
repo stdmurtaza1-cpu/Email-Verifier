@@ -8,8 +8,22 @@ from typing import Optional
 from celery import Celery
 from celery.utils.log import get_task_logger
 from core.verifier import verify_email
+from celery.signals import worker_process_init
+import threading
+import core.worker_registry as worker_registry
 
 logger = get_task_logger(__name__)
+
+@worker_process_init.connect
+def init_celery_identity(**kwargs):
+    def run_heartbeat():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(worker_registry.start_worker_heartbeat("celery"))
+        
+    t = threading.Thread(target=run_heartbeat, daemon=True)
+    t.start()
+    logger.info("Celery Worker Identity registered and Heartbeat engaged.")
 
 # ── Celery app ────────────────────────────────────────────────────────────────
 redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")

@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-import aioredis
 from redis.asyncio import Redis, ConnectionPool
 
 logger = logging.getLogger("cache")
@@ -53,6 +52,14 @@ async def cache_hset(key: str, mapping: dict, ttl: int = None):
     except Exception as e:
         logger.warning(f"Redis cache_hset error for {key}: {e}")
 
+async def cache_hdel(key: str, *fields):
+    try:
+        if not fields: return
+        r = get_redis()
+        await r.hdel(key, *fields)
+    except Exception as e:
+        logger.warning(f"Redis cache_hdel error for {key}: {e}")
+
 async def cache_hgetall(key: str):
     try:
         r = get_redis()
@@ -61,3 +68,27 @@ async def cache_hgetall(key: str):
     except Exception as e:
         logger.warning(f"Redis cache_hgetall error for {key}: {e}")
         return None
+
+async def cache_sadd(key: str, *values):
+    try:
+        if not values: return
+        r = get_redis()
+        await r.sadd(key, *values)
+    except Exception as e:
+        logger.warning(f"Redis cache_sadd error for {key}: {e}")
+
+async def cache_srem(key: str, *values):
+    try:
+        if not values: return
+        r = get_redis()
+        await r.srem(key, *values)
+    except Exception as e:
+        logger.warning(f"Redis cache_srem error for {key}: {e}")
+
+async def cache_smembers(key: str) -> set:
+    try:
+        r = get_redis()
+        return await r.smembers(key)
+    except Exception as e:
+        logger.warning(f"Redis cache_smembers error for {key}: {e}")
+        return set()

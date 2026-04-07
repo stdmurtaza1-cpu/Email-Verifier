@@ -1,4 +1,4 @@
-from cache import cache_get, cache_set
+from cache import cache_get, cache_set, cache_hgetall, cache_hdel, get_redis
 import re
 import os
 import dns.resolver
@@ -11,6 +11,9 @@ import time
 import logging
 from typing import List, Tuple, Optional, Dict, Any
 from functools import wraps
+from database import SessionLocal, SmtpIp
+from core.worker_registry import get_worker_name
+import math
 
 # Setup detailed debug logging
 logger = logging.getLogger("verifier")
@@ -25,14 +28,13 @@ if not logger.handlers:
 EMAIL_REGEX = re.compile(r'^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$')
 
 # HELO/EHLO domain — set HELO_DOMAIN in .env to your actual sending domain
-HELO_DOMAIN = os.getenv("HELO_DOMAIN", "mail.verification-service.com")
+HELO_DOMAIN = os.getenv("HELO_DOMAIN", "mail.quantx-estimation.net")
 EHLO_HOST = HELO_DOMAIN          # kept for backward-compat references
 MAIL_FROM = f"verify@{HELO_DOMAIN}"
 
 # SMTP source IP rotation — set SMTP_SOURCE_IPS in .env as a comma-separated list
 # Leave unset to use the server's default outbound IP
-_raw_ips = os.getenv("SMTP_SOURCE_IPS", "").strip()
-SMTP_IPS: List[str] = [ip.strip() for ip in _raw_ips.split(",") if ip.strip()] if _raw_ips else []
+SMTP_IPS = [ip.strip() for ip in os.getenv("SMTP_SOURCE_IPS", "").split(",") if ip.strip()]
 
 DOMAIN_STATS = {}
 
@@ -248,6 +250,83 @@ async def _smtp_verify_email(smtp, domain: str, email: str) -> Tuple[int, str, i
         return c, m, 0
     return await loop.run_in_executor(None, _exchange)
 
+# ── Dynamic IP Fault Tolerance Tracking ───────────────────────────────────────
+
+async def mark_ip_cooldown(ip_address: str):
+    logger.warning(f"CRITICAL: Marking IP {ip_address} as COOLDOWN due to excessive failures.")
+    await cache_hdel("smtp:active_ips", ip_address)
+    loop = asyncio.get_running_loop()
+    def _db_update():
+        db = SessionLocal()
+        try:
+            ip = db.query(SmtpIp).filter(SmtpIp.ip_address == ip_address).first()
+            if ip:
+                ip.status = "cooldown"
+                db.commit()
+        except Exception as e:
+            logger.error(f"Failed to update IP status to cooldown in DB: {e}")
+        finally:
+            db.close()
+    await loop.run_in_executor(None, _db_update)
+
+async def track_ip_failure(ip_address: str, domain: str):
+    if not ip_address: return
+    try:
+        r = get_redis()
+        key = f"ip_fails:{ip_address}"
+        fails = await r.incr(key)
+        if fails == 1:
+            await r.expire(key, 3600)  # Cooldown limits reset every hour natively
+            
+        domain_lower = domain.lower()
+        if "gmail.com" in domain_lower or "googlemail.com" in domain_lower:
+            threshold = 3
+        elif "yahoo.com" in domain_lower:
+            threshold = 5
+        else:
+            threshold = 7
+            
+        logger.debug(f"IP {ip_address} logged failure {fails}/{threshold} for domain {domain}")
+        if fails >= threshold:
+            logger.warning(f"[MONITOR] EVENT=COOLDOWN_TRIGGERED | ip={ip_address} | msg=Threshold {threshold} exceeded")
+            await mark_ip_cooldown(ip_address)
+    except Exception as e:
+        logger.error(f"Error tracking IP failure for {ip_address}: {e}")
+
+async def track_ip_success(ip_address: str):
+    if not ip_address: return
+    try:
+        r = get_redis()
+        key = f"ip_success:{ip_address}"
+        successes = await r.incr(key)
+        if successes == 1:
+            await r.expire(key, 86400) # Reset daily
+    except Exception as e:
+        pass
+
+async def log_verifier_result(email: str, domain: str, ip: str, target: str, port: int, result: str, details: str = ""):
+    worker_id = get_worker_name()
+    if not ip:
+        logger.info(f"[VERIFIER_RESULT] email={email} | domain={domain} | ip=DEFAULT | target={target}:{port} | ratio=100% | fails=0 | result={result} {details}")
+        return
+    try:
+        r = get_redis()
+        # Aggregating Worker-Level Statistics
+        await r.incr(f"worker:{worker_id}:processed")
+        if result in ["VALID", "CATCH_ALL"]:
+            await r.incr(f"worker:{worker_id}:success")
+        
+        await r.incr(f"ip_usage:{ip}") # Track IP Usage
+        
+        s, f = await r.mget(f"ip_success:{ip}", f"ip_fails:{ip}")
+        s_cnt = int(s) if s else 0
+        f_cnt = int(f) if f else 0
+        ratio = f"{int(s_cnt/(s_cnt+f_cnt)*100)}%" if (s_cnt+f_cnt) > 0 else "100%"
+        dtl = f"({details})" if details else ""
+        logger.info(f"[VERIFIER_RESULT] email={email} | domain={domain} | ip={ip} | target={target}:{port} | ratio={ratio} | fails={f_cnt} | result={result} {dtl}")
+    except Exception:
+        logger.info(f"[VERIFIER_RESULT] email={email} | domain={domain} | ip={ip} | target={target}:{port} | result={result} {details}")
+
 # ── Per-domain SMTP rate limiter ──────────────────────────────────────────────
 SMTP_RATE_LIMIT = int(os.getenv("SMTP_RATE_LIMIT_PER_MIN", "5"))   # requests per domain per minute
 
@@ -277,6 +356,19 @@ async def _check_smtp_rate_limit(domain: str) -> bool:
 
 async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
     domain = email.split("@")[1]
+    
+    # --- Worker-level basic traffic limiting ---
+    worker_id = get_worker_name()
+    try:
+        r = get_redis()
+        worker_reqs = await r.incr(f"worker:{worker_id}:requests_per_min")
+        if worker_reqs == 1:
+            await r.expire(f"worker:{worker_id}:requests_per_min", 60)
+        if worker_reqs > 2000: # Max 2000 external pings per minute per Node footprint
+            logger.warning(f"[MONITOR] EVENT=WORKER_OVERLOADED | worker={worker_id} | msg=Rate >2000/min. Imposing throttling.")
+            await asyncio.sleep(4) 
+    except Exception:
+        pass
 
     # ── Per-domain rate-limit guard ───────────────────────────────────────────
     if not await _check_smtp_rate_limit(domain):
@@ -300,9 +392,53 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
         target = await resolve_host(mx_host)
         
         for port, mode in ports:
-            # Multi-IP rotation: Shuffle available IPs so connections distribute load
-            available_ips = list(SMTP_IPS) if SMTP_IPS else [None]
-            random.shuffle(available_ips)
+            # Multi-IP rotation: Weighted shuffle strictly bound to dedicated Worker IPs
+            worker_id = get_worker_name()
+            active_redis_ips = await cache_hgetall(f"worker:{worker_id}:ips")
+            
+            # Autonomously Fallback to global pool if this node has NO dedicated IPs yet
+            if not active_redis_ips:
+                active_redis_ips = await cache_hgetall("smtp:active_ips")
+                
+            if active_redis_ips:
+                r = get_redis()
+                ips = list(active_redis_ips.keys())
+                success_keys = [f"ip_success:{ip}" for ip in ips]
+                fail_keys = [f"ip_fails:{ip}" for ip in ips]
+                
+                all_keys = success_keys + fail_keys
+                all_values = await r.mget(all_keys) if all_keys else []
+                
+                ip_weights = {}
+                half = len(ips)
+                
+                for idx, ip in enumerate(ips):
+                    base_score = int(active_redis_ips[ip])
+                    if base_score <= 0: continue
+                    
+                    s_str = all_values[idx]
+                    f_str = all_values[idx + half]
+                    
+                    s_cnt = int(s_str) if s_str else 0
+                    f_cnt = int(f_str) if f_str else 0
+                    
+                    total = s_cnt + f_cnt
+                    ratio = max(0.1, s_cnt / total) if total > 0 else 1.0
+                    
+                    # Effective mathematical scaling applied securely
+                    ip_weights[ip] = base_score * ratio
+                
+                if ip_weights:
+                    available_ips = sorted(
+                        ip_weights.keys(), 
+                        key=lambda ip: -math.log(random.uniform(1e-10, 1.0)) / ip_weights[ip]
+                    )
+                else:
+                    available_ips = list(SMTP_IPS) if SMTP_IPS else [None]
+                    random.shuffle(available_ips)
+            else:
+                available_ips = list(SMTP_IPS) if SMTP_IPS else [None]
+                random.shuffle(available_ips)
             
             # Use chunks of available IPs. Shorter timeout first, then longer on retry
             for attempt, source_ip in enumerate(available_ips[:3]):
@@ -328,45 +464,63 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
                     
                     if code == 250:
                         if fake_code == 250:
+                            await track_ip_success(source_ip)
+                            await log_verifier_result(email, domain, source_ip, target, port, "CATCH_ALL")
                             return "CATCH_ALL", "Server accepts all emails for this domain"
+                        
+                        await track_ip_success(source_ip)
+                        await log_verifier_result(email, domain, source_ip, target, port, "VALID")
                         return "VALID", "SMTP server confirmed email existence"
 
                     if code in [550, 551, 552, 553, 554]:
                         if any(w in msg_str for w in ['spam', 'block', 'banned', 'blacklisted', 'not allowed', 'rejected', 'policy', 'denied']):
-                            return "SPAM BLOCK", f"Server rejected our IP/domain: {msg_str}"
+                            await track_ip_failure(source_ip, domain)
+                            await log_verifier_result(email, domain, source_ip, target, port, "SPAM_BLOCK", msg_str)
+                            last_status = "SPAM BLOCK"
+                            details = f"Server rejected our IP/domain: {msg_str}"
+                            continue # Try next IP
+                        
+                        await track_ip_success(source_ip) # User issue, IP handshake successful
+                        await log_verifier_result(email, domain, source_ip, target, port, "INVALID", msg_str)
                         return "INVALID", f"SMTP server rejected email: {msg_str}"
 
                     if code in [450, 451, 452]:
+                        await track_ip_success(source_ip) # IP reached target, greylisting is standard
+                        await log_verifier_result(email, domain, source_ip, target, port, "GREYLISTED", msg_str)
                         return "GREYLISTED", f"Temporary rejection (Greylisting): {msg_str}"
 
                     if code in [421, 454, 503, 521, 523] or (400 <= code < 500):
+                        await track_ip_failure(source_ip, domain)
                         last_status = "GREYLISTED"
                         details = f"Server temporarily busy or unavailable: {code}"
-                        break # Go to next port
+                        continue # Try next IP
                         
                     if 500 <= code < 600:
+                        await track_ip_failure(source_ip, domain)
                         last_status = "UNVERIFIABLE"
                         details = f"Server returned generic error {code}: {msg_str}"
-                        break # Go to next port
+                        continue # Try next IP
 
                 except (socket.timeout, TimeoutError) as e:
-                    logger.debug(f"Timeout on {target}:{port} (Attempt {attempt+1}): {str(e)}")
+                    logger.debug(f"Timeout on {target}:{port} via {source_ip} (Attempt {attempt+1}): {str(e)}")
+                    await track_ip_failure(source_ip, domain)
                     last_status = "TIMEOUT"
                     details = "Connection timed out"
-                    continue # Retry with longer timeout
+                    continue # Retry with next IP
                     
                 except ConnectionRefusedError as e:
-                    logger.debug(f"Connection refused on {target}:{port}: {str(e)}")
+                    logger.debug(f"Connection refused on {target}:{port} via {source_ip}: {str(e)}")
+                    await track_ip_failure(source_ip, domain)
                     last_status = "CONNECTION_REFUSED"
                     details = "Connection refused by server"
-                    # Refused means actively rejected, stop retrying this port immediately
-                    break
+                    continue # Target blocked the IP, try next IP!
                     
                 except Exception as e:
-                    logger.debug(f"Error on {target}:{port}: {str(e)}")
+                    logger.debug(f"Error on {target}:{port} via {source_ip}: {str(e)}")
+                    await track_ip_failure(source_ip, domain)
                     last_status = "UNVERIFIABLE"
                     details = f"SMTP error: {str(e)}"
-                    break
+                    continue # Try next IP
                     
                 finally:
                     if smtp:

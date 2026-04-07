@@ -7,7 +7,12 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import os
 import logging
+import asyncio
+import smtplib
 from contextlib import asynccontextmanager
+from database import SessionLocal, SmtpIp
+from cache import cache_hset, cache_hgetall, get_redis
+import core.worker_registry as worker_registry
 from routes.api import router as api_router
 from routes.auth import router as auth_router
 from routes.admin import router as admin_router
@@ -16,6 +21,74 @@ from routes.partner import router as partner_router
 from routes.billing import router as billing_router
 
 logger = logging.getLogger("main")
+
+async def ip_health_monitor_daemon():
+    while True:
+        try:
+            await asyncio.sleep(60) # Accelerated sweep rate for multi-node monitoring
+            r = get_redis()
+            
+            # ── 1. Parent Orchestrator: Dead Worker Detection ─────────────────
+            active_cluster = await r.smembers("active_workers")
+            for node in active_cluster:
+                if not await r.exists(f"worker:{node}:heartbeat"):
+                    logger.warning(f"[PARENT MONITOR] 💀 Dead Worker Detected: {node} - Reclaiming IP resources!")
+                    orphaned_ips = await cache_hgetall(f"worker:{node}:ips")
+                    
+                    if orphaned_ips:
+                        for ip_addr, health_score in orphaned_ips.items():
+                            logger.info(f"[PARENT MONITOR] Reassigned Orphaned IP {ip_addr} back to Global Gateway.")
+                            await cache_hset("smtp:active_ips", {ip_addr: health_score})
+                        await r.delete(f"worker:{node}:ips")
+                        
+                    await r.srem("active_workers", node)
+                    await r.incr("system:worker_crashes")
+            
+            # ── 2. Cooldown Autonomous Recovery Matrix ────────────────────────
+            loop = asyncio.get_running_loop()
+            
+            def _check():
+                db = SessionLocal()
+                try:
+                    cooldown_ips = db.query(SmtpIp).filter(SmtpIp.status == "cooldown").all()
+                    if not cooldown_ips: return []
+                    
+                    recovered = []
+                    target = "gmail-smtp-in.l.google.com"
+                    for ip_record in cooldown_ips:
+                        try:
+                            # Verify outbound socket cleanly opens
+                            smtp = smtplib.SMTP(timeout=5, source_address=(ip_record.ip_address, 0))
+                            smtp.connect(target, 25)
+                            smtp.quit()
+                            
+                            ip_record.status = "active"
+                            recovered.append((ip_record.ip_address, ip_record.health_score))
+                        except Exception as e:
+                            pass # Still dead
+                            
+                    if recovered:
+                        db.commit()
+                    return recovered
+                except Exception as e:
+                    logger.error(f"[DAEMON] DB error: {e}")
+                    return []
+                finally:
+                    db.close()
+            
+            recovered_ips = await loop.run_in_executor(None, _check)
+            
+            if recovered_ips:
+                for ip, score in recovered_ips:
+                    logger.info(f"[DAEMON] 🏥 IP {ip} successfully recovered! Re-added to dynamic rotation.")
+                    await r.delete(f"ip_fails:{ip}")
+                    await cache_hset("smtp:active_ips", {ip: score})
+                    
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"[DAEMON] General execution fault: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,8 +103,29 @@ async def lifespan(app: FastAPI):
     else:
         logger.info(f"SMTP IP rotation active: {len(SMTP_IPS)} IP(s) configured.")
     logger.info(f"SMTP HELO domain: {HELO_DOMAIN}")
+    
+    if "154.38.182.28" in SMTP_IPS:
+        try:
+            import socket
+            s = socket.create_connection(("154.38.182.28", 25), timeout=5)
+            s.recv(1024)
+            s.close()
+            logger.info("SMTP IP 154.38.182.28 verified and ready")
+        except Exception as e:
+            logger.warning(f"SMTP IP unreachable: {e}")
+    
+    daemon_task = asyncio.create_task(ip_health_monitor_daemon())
+    heartbeat_task = asyncio.create_task(worker_registry.start_worker_heartbeat("web"))
+    
     yield
     # ── Shutdown (nothing to clean up yet) ───────────────────────────────────
+    daemon_task.cancel()
+    heartbeat_task.cancel()
+    
+    try:
+        await asyncio.gather(daemon_task, heartbeat_task, return_exceptions=True)
+    except asyncio.CancelledError:
+        pass
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["10000/minute"])
 
@@ -69,6 +163,9 @@ app.include_router(billing_router, prefix="/billing")
 os.makedirs("static", exist_ok=True)
 os.makedirs("uploads", exist_ok=True)
 os.makedirs(os.path.join("uploads", "jobs"), exist_ok=True)
+os.makedirs(os.path.join("uploads", "images"), exist_ok=True)
+
+app.mount("/uploads/images", StaticFiles(directory="uploads/images"), name="images")
 
 # Serve static files
 # This custom StaticFiles handler serves index.html for all non-API routes,

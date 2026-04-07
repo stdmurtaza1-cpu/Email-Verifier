@@ -19,7 +19,15 @@ const DOM = {
     usersBody: document.getElementById('admin-users-body'),
     searchInp: document.getElementById('user-search'),
     keysBody: document.getElementById('admin-keys-body'),
-    userModal: document.getElementById('user-modal-overlay')
+    userModal: document.getElementById('user-modal-overlay'),
+    workerCrashes: document.getElementById('stats-worker-crashes'),
+    clusterWorkers: document.getElementById('cluster-total-workers'),
+    clusterIps: document.getElementById('cluster-total-ips'),
+    clusterSuccess: document.getElementById('cluster-success-rate'),
+    workersBody: document.getElementById('admin-workers-body'),
+    ipsBody: document.getElementById('admin-ips-body'),
+    addIpModal: document.getElementById('add-ip-modal-overlay'),
+    assignWorkerModal: document.getElementById('assign-worker-modal-overlay')
 };
 
 let adminToken = localStorage.getItem('admin_token');
@@ -108,10 +116,15 @@ async function fetchStats() {
         if(!statsRes.ok) return;
         const stats = await statsRes.json();
         
-        DOM.totalUsers.textContent = (stats.total_users || 0).toLocaleString();
-        DOM.verifsToday.textContent = (stats.verifications_today || 0).toLocaleString();
-        DOM.verifsMonth.textContent = (stats.verifications_month || 0).toLocaleString();
-        DOM.verifsAll.textContent = (stats.verifications_all_time || 0).toLocaleString();
+        DOM.totalUsers.textContent = (stats.overview?.total_users || stats.total_users || 0).toLocaleString();
+        DOM.verifsToday.textContent = (stats.overview?.verifications_today || stats.verifications_today || 0).toLocaleString();
+        DOM.verifsMonth.textContent = (stats.overview?.verifications_month || stats.verifications_month || 0).toLocaleString();
+        DOM.verifsAll.textContent = (stats.overview?.verifications_all_time || stats.verifications_all_time || 0).toLocaleString();
+        
+        DOM.clusterWorkers.textContent = stats.overview?.total_workers_online || "0";
+        DOM.clusterIps.textContent = stats.overview?.total_active_ips || "0";
+        DOM.clusterSuccess.textContent = stats.overview?.overall_success_rate || "N/A";
+        if(DOM.workerCrashes) DOM.workerCrashes.textContent = stats.overview?.total_worker_crashes || "0";
         
         if (stats.chart_data && stats.chart_data.labels) {
             renderChart(stats.chart_data.labels, stats.chart_data.values);
@@ -139,6 +152,20 @@ async function loadDashboard() {
         const keysData = await keysRes.json();
         allKeys = keysData.keys || [];
         renderKeysTable(allKeys);
+        
+        const workersRes = await fetch('/api/admin/workers', { headers: getHeaders() });
+        let activeWorkersData = [];
+        if(workersRes.ok) {
+            const wData = await workersRes.json();
+            activeWorkersData = wData.workers || [];
+            renderWorkersTable(activeWorkersData);
+        }
+
+        const ipsRes = await fetch('/api/admin/ips', { headers: getHeaders() });
+        if(ipsRes.ok) {
+            const iData = await ipsRes.json();
+            renderIpsTable(iData.ips || [], activeWorkersData);
+        }
         
         showDash();
     } catch (err) {
@@ -189,6 +216,9 @@ function renderUsersTable(usersArray) {
             <td style="padding: 1rem; font-weight: 600;">${u.email}</td>
             <td style="padding: 1rem;"><span class="badge ${u.plan}" style="text-transform:uppercase;">${u.plan}</span></td>
             <td style="padding: 1rem;">${(u.credits || 0).toLocaleString()}</td>
+            <td style="padding: 1rem; color: var(--text-muted);">${u.joined_date ? u.joined_date.split('T')[0] : 'N/A'}</td>
+            <td style="padding: 1rem; font-weight: 500; color: var(--success);">${(u.total_verifications || 0).toLocaleString()}</td>
+            <td style="padding: 1rem; font-weight: 500; color: var(--warning);">${(u.monthly_verifications || 0).toLocaleString()}</td>
             <td style="padding: 1rem;">
                 <span style="color: ${isAct ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
                     ${isAct ? 'Active' : 'Suspended'}
@@ -344,5 +374,237 @@ window.revokeKey = async function(keyId) {
         loadDashboard();
     } catch(e) { alert(e.message); }
 };
+
+// Distributed Grid Renderers
+function renderWorkersTable(workersArray) {
+    DOM.workersBody.innerHTML = '';
+    workersArray.forEach(w => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+        
+        tr.innerHTML = `
+            <td style="padding: 1rem; font-weight: 600; font-family: monospace; color: var(--secondary);">${w.worker_name}</td>
+            <td style="padding: 1rem;">
+                <span style="color: ${w.status === 'online' ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
+                    ${w.status.toUpperCase()}
+                </span>
+            </td>
+            <td style="padding: 1rem;">${w.assigned_ip_count} IPs Configured Native Scope</td>
+        `;
+        DOM.workersBody.appendChild(tr);
+    });
+}
+
+function renderIpsTable(ipsArray, workersArray) {
+    DOM.ipsBody.innerHTML = '';
+    // Reverse Map IPs to workers
+    const ipWorkerMap = {};
+    workersArray.forEach(w => {
+        w.assigned_ips.forEach(ip => { ipWorkerMap[ip] = w.worker_name; });
+    });
+    
+    ipsArray.forEach(ip => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+        const nodeOwner = ipWorkerMap[ip.ip_address] || "Global (Unassigned Master Pool)";
+        
+        let statColor = 'var(--text-muted)';
+        if(ip.status === 'active') statColor = 'var(--success)';
+        if(ip.status === 'frozen') statColor = 'var(--danger)';
+        if(ip.status === 'cooldown') statColor = 'var(--warning)';
+        
+        let healthColor = ip.health_score > 70 ? 'var(--success)' : (ip.health_score > 40 ? 'var(--warning)' : 'var(--danger)');
+        
+        tr.innerHTML = `
+            <td style="padding: 1rem; font-weight: bold; font-family: monospace;">${ip.ip_address}</td>
+            <td style="padding: 1rem; font-weight: bold; color: ${healthColor};">${ip.health_score} / 100</td>
+            <td style="padding: 1rem; color: ${statColor}; font-weight: bold; text-transform: uppercase;">${ip.status}</td>
+            <td style="padding: 1rem; color: ${nodeOwner.includes("Global") ? 'var(--text-muted)' : 'var(--secondary)'};">${nodeOwner}</td>
+            <td style="padding: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--secondary); color: #000;" onclick="openAssignIpModal('${ip.ip_address}')">Assign Node Route</button>
+                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--danger); color: white;" onclick="adminFreezeIp('${ip.id}')">Force Freeze</button>
+            </td>
+        `;
+        DOM.ipsBody.appendChild(tr);
+    });
+}
+
+// IP Action Handlers
+window.openAddIpModal = function() {
+    DOM.addIpModal.classList.remove('hidden');
+};
+
+window.adminSubmitNewIp = async function() {
+    const ip = document.getElementById('add-ip-address').value;
+    const score = document.getElementById('add-ip-score').value || 100;
+    if(!ip) return;
+    try {
+        const res = await fetch('/api/admin/ips', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ ip_address: ip, health_score: parseInt(score), status: 'active' })
+        });
+        if(!res.ok) throw new Error("Failed injecting IP Target.");
+        alert("IP successfully injected natively.");
+        DOM.addIpModal.classList.add('hidden');
+        loadDashboard();
+    } catch(e) { alert(e.message); }
+};
+
+window.adminFreezeIp = async function(id) {
+    if(!confirm("Are you sure? This immediately strips bounds across all worker nodes and global sets!")) return;
+    try {
+        const res = await fetch('/api/admin/ips/'+id+'/freeze', { method: 'PATCH', headers: getHeaders() });
+        if(!res.ok) throw new Error("Failed execution");
+        loadDashboard();
+    } catch(e) { alert(e.message); }
+};
+
+window.openAssignIpModal = async function(ip_address) {
+    document.getElementById('assign-ip-label').textContent = ip_address;
+    
+    // fetch active workers to fill dropdown
+    try {
+        const res = await fetch('/api/admin/workers', { headers: getHeaders() });
+        if(res.ok) {
+            const data = await res.json();
+            const sel = document.getElementById('assign-worker-select');
+            sel.innerHTML = '<option value="GLOBAL_RELEASE">-- Release to Global Pool --</option>';
+            data.workers.forEach(w => {
+                 sel.innerHTML += `<option value="${w.worker_name}">${w.worker_name}</option>`;
+            });
+        }
+        DOM.assignWorkerModal.classList.remove('hidden');
+    } catch(e){}
+};
+
+window.adminSubmitAssignWorker = async function() {
+    const ip = document.getElementById('assign-ip-label').textContent;
+    const targetWorker = document.getElementById('assign-worker-select').value;
+    
+    try {
+        if(targetWorker === "GLOBAL_RELEASE") {
+            // we must figure out the old worker to release it, or we can just call an API to release from whatever.
+            // since we do a direct POST to specific worker:
+            alert("To release explicitly, use the specific worker API in postman or backend context natively. Selecting a worker binds it.");
+            return;
+        }
+        const res = await fetch(`/api/admin/workers/${targetWorker}/assign/${ip}`, {
+            method: 'POST',
+            headers: getHeaders()
+        });
+        if(!res.ok) throw new Error("Check if IP is active and inside Global Array.");
+        alert("IP Strict assignment completed gracefully.");
+        DOM.assignWorkerModal.classList.add('hidden');
+        loadDashboard();
+    } catch(e) { alert(e.message); }
+};
+
+// ==========================================
+// PAGES CMS / QUILL EDITOR LOGIC
+// ==========================================
+let quillEditor = null;
+
+function initQuill() {
+    if(quillEditor) return;
+    
+    quillEditor = new Quill('#editor-container', {
+        theme: 'snow',
+        modules: {
+            toolbar: {
+                container: [
+                    [{ header: [1, 2, 3, 4, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    [{ color: [] }, { background: [] }],
+                    ['link', 'image', 'video'],
+                    ['clean']
+                ],
+                handlers: {
+                    image: imageHandler
+                }
+            }
+        }
+    });
+}
+
+// Custom Image Upload Handler for Quill
+function imageHandler() {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    input.click();
+
+    input.onchange = async () => {
+        const file = input.files[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                // Assuming admin headers if required, but FormData boundary handles it automatically when not explicitly setting Content-Type
+                const res = await fetch('/api/admin/upload-image', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${adminToken}` },
+                    body: formData
+                });
+                if (!res.ok) throw new Error("Image upload failed");
+                const data = await res.json();
+                
+                const range = quillEditor.getSelection();
+                quillEditor.insertEmbed(range.index, 'image', data.url);
+            } catch (err) {
+                alert("Upload failed: " + err.message);
+            }
+        }
+    };
+}
+
+window.adminLoadPageContent = async function() {
+    initQuill();
+    const slug = document.getElementById('admin-page-selector').value;
+    try {
+        const res = await fetch(`/api/admin/page/${slug}`, { headers: getHeaders() });
+        const data = await res.json();
+        const content = data.html_content || '';
+        // Set the content safely via Quill's internal HTML setter
+        quillEditor.clipboard.dangerouslyPasteHTML(content);
+    } catch(e) {
+        alert("Failed to load page content.");
+    }
+};
+
+window.adminSavePageContent = async function() {
+    const slug = document.getElementById('admin-page-selector').value;
+    const htmlContent = quillEditor.root.innerHTML;
+    
+    document.getElementById('admin-save-page-txt').classList.add('hidden');
+    document.getElementById('admin-save-page-loader').classList.remove('hidden');
+    
+    try {
+        const res = await fetch(`/api/admin/page/${slug}`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ html_content: htmlContent })
+        });
+        if(!res.ok) throw new Error("Save failed");
+        alert(`Page '${slug}' updated successfully! Note: You may need to refresh the public site to see changes.`);
+    } catch (e) {
+        alert("Failed to save content.");
+    } finally {
+        document.getElementById('admin-save-page-txt').classList.remove('hidden');
+        document.getElementById('admin-save-page-loader').classList.add('hidden');
+    }
+};
+
+// Hook into navigation to lazy load quill if they click Pages tab
+DOM.navBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        if(e.target.dataset.target === 'panel-pages') {
+            initQuill();
+            adminLoadPageContent(); // Auto load "home" which is default
+        }
+    });
+});
 
 init();
