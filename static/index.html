@@ -152,6 +152,44 @@
                 <div id="dynamic-content-home" class="dynamic-area mt-4"></div>
             </section>
 
+            <!-- GETTING STARTED BANNER -->
+            <section class="container mt-5" id="getting-started-section">
+                <div class="glass p-5 rounded" style="border-left: 4px solid var(--primary); background: rgba(0,242,96,0.04);">
+                    <div class="grid-2 align-center gap-4">
+                        <div>
+                            <span class="section-tag" style="background: rgba(0,242,96,0.15); color: var(--primary); padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.85rem;">New Here? Start Here 👇</span>
+                            <h2 class="mt-3">3 Steps to Clean Your Email List</h2>
+                            <div class="mt-4" style="display: flex; flex-direction: column; gap: 1.2rem;">
+                                <div class="flex align-center gap-3">
+                                    <div style="min-width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700;">1</div>
+                                    <div><strong>Sign up for free</strong> — you get 100 free verification credits instantly, no credit card needed.</div>
+                                </div>
+                                <div class="flex align-center gap-3">
+                                    <div style="min-width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700;">2</div>
+                                    <div><strong>Paste or upload your emails</strong> — single email for quick checks, or upload a CSV file for bulk verification.</div>
+                                </div>
+                                <div class="flex align-center gap-3">
+                                    <div style="min-width: 36px; height: 36px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700;">3</div>
+                                    <div><strong>Download clean results</strong> — get a CSV with status for each email. Remove the bad ones, keep the good.</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-large mt-4" onclick="document.getElementById('nav-signup-btn').click()">Create Free Account →</button>
+                        </div>
+                        <div class="glass p-4 rounded" style="border: 1px solid rgba(0,242,96,0.2);">
+                            <h4 class="mb-3" style="color: var(--primary);">What each status means:</h4>
+                            <div style="display: flex; flex-direction: column; gap: 0.8rem; font-size: 0.9rem;">
+                                <div class="flex align-center gap-2"><span style="color: var(--success);">✅ VALID</span> <span class="text-muted">— Email exists and can receive mail</span></div>
+                                <div class="flex align-center gap-2"><span style="color: #00e676;">🔄 CATCH-ALL</span> <span class="text-muted">— Domain accepts all emails (can't verify individually)</span></div>
+                                <div class="flex align-center gap-2"><span style="color: var(--danger);">❌ INVALID</span> <span class="text-muted">— Email does not exist, remove it from your list</span></div>
+                                <div class="flex align-center gap-2"><span style="color: #ff9800;">🗑️ DISPOSABLE</span> <span class="text-muted">— Temporary/fake email, avoid it</span></div>
+                                <div class="flex align-center gap-2"><span style="color: var(--warning);">⏱️ TIMEOUT</span> <span class="text-muted">— Server didn't respond, try again later</span></div>
+                                <div class="flex align-center gap-2"><span style="color: #607d8b;">⚠️ GREYLISTED</span> <span class="text-muted">— Temporarily rejected, usually valid</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- REVIEWS SECTION -->
             <section class="reviews-section split-bg mt-5" id="reviews-section">
               <div class="container text-center">
@@ -274,6 +312,57 @@
                 </div>
               </div>
             </section>
+            <!-- FAQ SECTION -->
+            <section class="container mt-5 mb-5" id="faq-section">
+                <div class="text-center mb-5">
+                    <span class="section-tag" style="background: rgba(0,242,96,0.15); color: var(--primary); padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.85rem;">Common Questions</span>
+                    <h2 class="mt-3">Frequently Asked Questions</h2>
+                </div>
+                <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem;" id="faq-list">
+                    <div class="glass p-4 rounded faq-item" onclick="this.classList.toggle('open')" style="cursor:pointer;">
+                        <div class="flex flex-between align-center">
+                            <strong>Is it really free to start?</strong>
+                            <span class="faq-arrow" style="color: var(--primary); font-size: 1.2rem; transition: transform 0.3s;">▼</span>
+                        </div>
+                        <p class="text-muted faq-answer" style="margin-top: 1rem; display: none; line-height: 1.7;">Yes! Sign up and instantly get 100 free verification credits — no credit card required. Use them for single email checks or small bulk lists. When you run out, you can contact us to upgrade to a paid plan.</p>
+                    </div>
+                    <div class="glass p-4 rounded faq-item" onclick="this.classList.toggle('open')" style="cursor:pointer;">
+                        <div class="flex flex-between align-center">
+                            <strong>What is a "credit" and how does it work?</strong>
+                            <span class="faq-arrow" style="color: var(--primary); font-size: 1.2rem; transition: transform 0.3s;">▼</span>
+                        </div>
+                        <p class="text-muted faq-answer" style="margin-top: 1rem; display: none; line-height: 1.7;">1 credit = 1 email verified. When you verify a single email, 1 credit is deducted. When you bulk-verify 500 emails, 500 credits are deducted. Credits do not expire and roll over month to month.</p>
+                    </div>
+                    <div class="glass p-4 rounded faq-item" onclick="this.classList.toggle('open')" style="cursor:pointer;">
+                        <div class="flex flex-between align-center">
+                            <strong>Can I verify Gmail, Yahoo and Outlook emails?</strong>
+                            <span class="faq-arrow" style="color: var(--primary); font-size: 1.2rem; transition: transform 0.3s;">▼</span>
+                        </div>
+                        <p class="text-muted faq-answer" style="margin-top: 1rem; display: none; line-height: 1.7;">These providers (Gmail, Yahoo, Outlook, Hotmail) block SMTP probing to protect user privacy — this is an industry-wide limitation, not specific to VerifyNinja. For these domains we return a <strong>CATCH-ALL</strong> status, meaning the domain is real and receives mail, but individual mailbox existence cannot be confirmed via SMTP. All other corporate and business emails are fully verified.</p>
+                    </div>
+                    <div class="glass p-4 rounded faq-item" onclick="this.classList.toggle('open')" style="cursor:pointer;">
+                        <div class="flex flex-between align-center">
+                            <strong>How do I verify a large list (bulk)?</strong>
+                            <span class="faq-arrow" style="color: var(--primary); font-size: 1.2rem; transition: transform 0.3s;">▼</span>
+                        </div>
+                        <p class="text-muted faq-answer" style="margin-top: 1rem; display: none; line-height: 1.7;">After logging in, go to your Dashboard → Bulk Verify tab. Upload a .csv or .txt file with one email per line. The system will process them and let you download a full results CSV when done. Bulk verification requires a Starter plan or higher.</p>
+                    </div>
+                    <div class="glass p-4 rounded faq-item" onclick="this.classList.toggle('open')" style="cursor:pointer;">
+                        <div class="flex flex-between align-center">
+                            <strong>Is my data safe? Do you store my email lists?</strong>
+                            <span class="faq-arrow" style="color: var(--primary); font-size: 1.2rem; transition: transform 0.3s;">▼</span>
+                        </div>
+                        <p class="text-muted faq-answer" style="margin-top: 1rem; display: none; line-height: 1.7;">We do not sell or share your data. Email addresses are processed in-memory for verification and result logs are stored in your private account only. All connections use TLS encryption. You can delete your history at any time from your dashboard.</p>
+                    </div>
+                    <div class="glass p-4 rounded faq-item" onclick="this.classList.toggle('open')" style="cursor:pointer;">
+                        <div class="flex flex-between align-center">
+                            <strong>Can I use the API to verify emails in my own app?</strong>
+                            <span class="faq-arrow" style="color: var(--primary); font-size: 1.2rem; transition: transform 0.3s;">▼</span>
+                        </div>
+                        <p class="text-muted faq-answer" style="margin-top: 1rem; display: none; line-height: 1.7;">Yes! All plans include API access. Go to Dashboard → API Keys to get your key, then send a POST request to <code style="background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;">/api/verify</code> with your email in the request body and your API key in the <code style="background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px;">X-API-Key</code> header.</p>
+                    </div>
+                </div>
+            </section>
         </div>
 
 
@@ -283,7 +372,12 @@
         <div id="page-pricing" class="page">
             <section class="pricing-header text-center">
                 <h1 class="gradient-text">Simple, Transparent Pricing.</h1>
-                <p>Scale your validation engine seamlessly. No hidden fees.</p>
+                <p>Scale your validation engine seamlessly. No hidden fees, no auto-billing.</p>
+                <div class="flex gap-3 justify-center mt-4" style="flex-wrap: wrap;">
+                    <div class="glass p-3 rounded" style="font-size: 0.9rem; padding: 0.6rem 1.2rem !important;">✅ No credit card required to start</div>
+                    <div class="glass p-3 rounded" style="font-size: 0.9rem; padding: 0.6rem 1.2rem !important;">✅ Manual activation — you pay only when you want</div>
+                    <div class="glass p-3 rounded" style="font-size: 0.9rem; padding: 0.6rem 1.2rem !important;">✅ Credits never expire</div>
+                </div>
             </section>
 
             <section class="container mt-5" style="padding-bottom: 6rem;">
@@ -358,6 +452,43 @@
                 <p class="text-center text-muted" style="max-width: 800px; margin: 0 auto; line-height: 1.8;">If you need over 500,000 verifications per day or a dedicated cluster execution setup with custom SLAs, reach out directly. The platform is capable of linear scaling without any degradation of latency or validation accuracy.</p>
                 <div id="dynamic-content-pricing" class="dynamic-area mt-4"></div>
             </section>
+
+            <!-- PRICING FAQ -->
+            <section class="container mb-5 mt-4">
+                <div class="text-center mb-5">
+                    <h2>Pricing Questions Answered</h2>
+                </div>
+                <div style="max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem;">
+                    <div class="glass p-4 rounded faq-item" onclick="this.classList.toggle('open')" style="cursor:pointer;">
+                        <div class="flex flex-between align-center">
+                            <strong>How do I upgrade my plan?</strong>
+                            <span class="faq-arrow" style="color: var(--primary); font-size: 1.2rem; transition: transform 0.3s;">▼</span>
+                        </div>
+                        <p class="text-muted faq-answer" style="margin-top: 1rem; display: none; line-height: 1.7;">Send an email to <a href="mailto:std.murtaza@gmail.com" style="color: var(--primary);">std.murtaza@gmail.com</a> or WhatsApp us at +92 3110403991. Tell us which plan you want and your account email. We'll activate your plan manually within 24 hours.</p>
+                    </div>
+                    <div class="glass p-4 rounded faq-item" onclick="this.classList.toggle('open')" style="cursor:pointer;">
+                        <div class="flex flex-between align-center">
+                            <strong>What payment methods do you accept?</strong>
+                            <span class="faq-arrow" style="color: var(--primary); font-size: 1.2rem; transition: transform 0.3s;">▼</span>
+                        </div>
+                        <p class="text-muted faq-answer" style="margin-top: 1rem; display: none; line-height: 1.7;">We handle billing manually and accept all major methods — bank transfer, JazzCash, EasyPaisa, PayPal, and cryptocurrency. Contact us to confirm payment details and we'll activate your plan promptly.</p>
+                    </div>
+                    <div class="glass p-4 rounded faq-item" onclick="this.classList.toggle('open')" style="cursor:pointer;">
+                        <div class="flex flex-between align-center">
+                            <strong>Do unused credits carry over?</strong>
+                            <span class="faq-arrow" style="color: var(--primary); font-size: 1.2rem; transition: transform 0.3s;">▼</span>
+                        </div>
+                        <p class="text-muted faq-answer" style="margin-top: 1rem; display: none; line-height: 1.7;">Yes. Your daily verification limit resets every 24 hours, but this is a limit — not a deduction. You always have access to the daily cap as long as your plan is active. There is no "use it or lose it" policy.</p>
+                    </div>
+                    <div class="glass p-4 rounded faq-item" onclick="this.classList.toggle('open')" style="cursor:pointer;">
+                        <div class="flex flex-between align-center">
+                            <strong>Can I share my plan with my team?</strong>
+                            <span class="faq-arrow" style="color: var(--primary); font-size: 1.2rem; transition: transform 0.3s;">▼</span>
+                        </div>
+                        <p class="text-muted faq-answer" style="margin-top: 1rem; display: none; line-height: 1.7;">Yes! Use the Partner License feature in your dashboard. Share your API key with a colleague and they can link it to their free account to use your plan's bulk verification capacity. Great for small teams.</p>
+                    </div>
+                </div>
+            </section>
         </div>
 
 
@@ -365,6 +496,14 @@
              PAGE 3: CONTACT VIEW
         =========================================== -->
         <div id="page-contact" class="page">
+
+            <!-- Contact Header -->
+            <section class="text-center" style="padding: 4rem 2rem 2rem;">
+                <span class="section-tag" style="background: rgba(0,242,96,0.15); color: var(--primary); padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.85rem;">We're here to help</span>
+                <h1 class="gradient-text mt-3">Contact & Support</h1>
+                <p class="text-muted mt-2" style="max-width: 600px; margin: 0.5rem auto 0;">Have a question, want to upgrade your plan, or need help? We typically respond within a few hours.</p>
+            </section>
+
             <section class="container mt-5" style="padding-bottom: 6rem;">
                 <div class="grid-2">
                     
@@ -402,7 +541,34 @@
                 </div>
             </section>
 
-            <section class="container mt-5 mb-5">
+            <!-- Quick Support Boxes -->
+            <section class="container mt-2 mb-5">
+                <div class="grid-4" style="gap: 1.2rem;">
+                    <div class="glass p-4 rounded text-center" style="border-top: 3px solid var(--primary);">
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">📦</div>
+                        <h4>Upgrade Plan</h4>
+                        <p class="text-muted mt-2" style="font-size: 0.85rem;">Email or WhatsApp us — we activate manually within 24 hours.</p>
+                        <a href="mailto:std.murtaza@gmail.com?subject=Plan Upgrade Request" class="btn btn-outline mt-3" style="font-size: 0.8rem; padding: 0.5rem 1rem; width: 100%;">Request Upgrade</a>
+                    </div>
+                    <div class="glass p-4 rounded text-center" style="border-top: 3px solid var(--secondary);">
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">🐛</div>
+                        <h4>Report a Bug</h4>
+                        <p class="text-muted mt-2" style="font-size: 0.85rem;">Something broken? Tell us with steps to reproduce and we'll fix it fast.</p>
+                        <a href="mailto:std.murtaza@gmail.com?subject=Bug Report" class="btn btn-outline mt-3" style="font-size: 0.8rem; padding: 0.5rem 1rem; width: 100%;">Report Issue</a>
+                    </div>
+                    <div class="glass p-4 rounded text-center" style="border-top: 3px solid #ffb300;">
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">💡</div>
+                        <h4>Feature Request</h4>
+                        <p class="text-muted mt-2" style="font-size: 0.85rem;">Have an idea? We love user feedback and implement the best suggestions.</p>
+                        <a href="mailto:std.murtaza@gmail.com?subject=Feature Request" class="btn btn-outline mt-3" style="font-size: 0.8rem; padding: 0.5rem 1rem; width: 100%;">Suggest Feature</a>
+                    </div>
+                    <div class="glass p-4 rounded text-center" style="border-top: 3px solid #25D366;">
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">💬</div>
+                        <h4>Instant Chat</h4>
+                        <p class="text-muted mt-2" style="font-size: 0.85rem;">For urgent matters, reach us directly on WhatsApp for fastest response.</p>
+                        <a href="https://wa.me/923110403991?text=Hi%20VerifyNinja%2C%20I%20need%20help%20with..." target="_blank" class="btn btn-outline mt-3" style="font-size: 0.8rem; padding: 0.5rem 1rem; width: 100%; border-color: #25D366; color: #25D366;">Open WhatsApp</a>
+                    </div>
+                </div>
                 <div id="dynamic-content-contact" class="dynamic-area mt-4"></div>
             </section>
         </div>
@@ -886,5 +1052,24 @@ curl -X POST "http://localhost:8000/api/verify" \
     <!-- Chart JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="app.js?v=2.0.2"></script>
+    <script>
+        // FAQ accordion toggle
+        document.addEventListener('click', function(e) {
+            const item = e.target.closest('.faq-item');
+            if (!item) return;
+            const answer = item.querySelector('.faq-answer');
+            const arrow = item.querySelector('.faq-arrow');
+            if (!answer) return;
+            const isOpen = item.classList.contains('open');
+            answer.style.display = isOpen ? 'block' : 'none';
+            if (arrow) arrow.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+        });
+        // Init: sync display state on load
+        document.querySelectorAll('.faq-item').forEach(function(item) {
+            const answer = item.querySelector('.faq-answer');
+            const arrow = item.querySelector('.faq-arrow');
+            if (answer) answer.style.display = 'none';
+        });
+    </script>
 </body>
 </html>
