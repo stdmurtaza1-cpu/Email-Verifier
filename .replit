@@ -1,0 +1,53 @@
+modules = ["python-3.12", "web", "nodejs-20", "bash"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+JWT_SECRET = "super-secret-mail-ninja-key-123"
+ADMIN_JWT_SECRET = "super_secret_admin_jwt_key_9999"
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "SecurePassword123!"
+HELO_DOMAIN = "mail.example.com"
+SMTP_SOURCE_IPS = ""
+REDIS_URL = "redis://127.0.0.1:6379/0"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash start.sh"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 6379
+externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["bash", "start.sh"]
