@@ -1,0 +1,227 @@
+email,status,details
+callchristine@comcast.net,TIMEOUT,Overall verification process exceeded 28s deadline.
+northwoodappraisal@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+jeanm@landerholm.com,REJECTED,"SMTP explicit reject (550): zen.mimecast.org Listed by CSS, see https://check.spamhaus.org/query/ip/39.46.9.65. Listed by PBL, see https://check.spamhaus.org/query/ip/39.46.9.65. Listed by XBL, see https://check.spamhaus.org/query/ip/39.46.9.65. - https://community.mimecast.com/docs/DOC-1369#550 [np3Ac2VmO9-QueKexy6S9g.us343]"
+mvtroland@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+wedgewoodhomes@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+rolandfink@johnlscott.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [SA2PEPF00003AEB.namprd02.prod.outlook.com 2026-03-14T05:41:15.883Z 08DE80BBE7FCEC26]"
+suburbanani@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+ernie.leland@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+steelsil2@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+meng@mengche.com,TIMEOUT,[Errno 11001] getaddrinfo failed
+barb@seattlesuburbs.com,MX ERROR,All DNS servers failed to respond
+marklingcod@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+dgcarner@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+tooleywoods1@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+millerdrywallinteriors@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+smnpiper@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+garwoodmarketing@gmail.com,ACCEPTED,Verified mailbox exists on port 25
+vincent@inlandagents.com,NO MX,Domain exists but has no MX records
+waterproof@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+alingcod@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+oksherwood@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+rwbrickner@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+kirk@landmarkinvest.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CO1PEPF00012E7D.namprd03.prod.outlook.com 2026-03-14T05:47:00.090Z 08DE80DBD9D9F186]"
+cindy@landmarkellensburg.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+vvaterproof@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+janestensland@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+fstone1118@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+urbanbaseconsulting@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+marslanding@earthlink.net,SPAM BLOCK,Connection refused or reset (Likely Blocked)
+oneillcodd@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+tracylandon3@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+williamsdesiree01@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+terrywoodall@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+dakotalandco@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+homesland@sequimgazette.com,REJECTED,"SMTP explicit reject (550): 5.1.1 The email account that you tried to reach does not exist. Please try
+5.1.1 double-checking the recipient's email address for typos or
+5.1.1 unnecessary spaces. For more information, go to
+5.1.1  https://support.google.com/mail/?p=NoSuchUser ffacd0b85a97d-439fe222fdasi16776804f8f.244 - gsmtp"
+garnettecarpenter@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+mike@re-commercial.com,NO MX,Domain exists but has no MX records
+carrisland@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+shorewoodrealestate@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+thesherwoodgroup@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+seattlesuburbs@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+hollandn@hotmail.com,ACCEPTED,Verified mailbox exists on port 25
+marciasteel@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+rjwoodard@comcast.net,TIMEOUT,Overall verification process exceeded 28s deadline.
+wdkirkwood@comcast.net,TIMEOUT,
+billcrego@gorge.net,TIMEOUT,Overall verification process exceeded 28s deadline.
+lisa@cornerstonelend.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+linda.forland@gmail.com,ACCEPTED,Verified mailbox exists on port 25
+greatland49@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+lakewoodvilla60@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+catlinlandriault@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+gregcox@mac.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+jodithomason@msn.com,TIMEOUT,
+mike@thebirklands.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+chuckroof@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+chris@kingcountyestates.com,ACCEPTED,Verified mailbox exists on port 25
+lindahume@rockisland.com,TIMEOUT,Socket timeout
+ohenry@rockisland.com,TIMEOUT,Socket timeout
+knych@rockisland.com,TIMEOUT,Socket timeout
+fhrealty@rockisland.com,TIMEOUT,Socket timeout
+sanjuanisland@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+kfarron@rockisland.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+patoday@interisland.net,SPAM BLOCK,Connection blocked/Policy limit (554)
+schaffer@rockisland.com,TIMEOUT,Socket timeout
+robertn@rockisland.com,TIMEOUT,Socket timeout
+brad_homeland@gorge.net,TIMEOUT,Socket timeout
+marciaelwood@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+jim@rockwellrealtyllc.com,ACCEPTED,Verified mailbox exists on port 25
+piperrealestate@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+russell@canterwood.com,MX ERROR,All DNS servers failed to respond
+lopezisland@rockisland.com,TIMEOUT,Socket timeout
+edenwild@rockisland.com,TIMEOUT,Socket timeout
+margieroe@rockisland.com,TIMEOUT,Socket timeout
+albritton@rockisland.com,TIMEOUT,Socket timeout
+bhamreconsultant@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+gwen@issaquahhighlands.com,REJECTED,SMTP explicit reject (550): 5.1.1 <gwen@issaquahhighlands.com>: Recipient address rejected: User unknown in virtual mailbox table
+lornaalandy@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+gceattle@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+moonstoneman@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+paulahaywood@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+margey@commercialmls.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CO1PEPF00012E62.namprd05.prod.outlook.com 2026-03-14T06:08:52.022Z 08DE8108BD649B81]"
+margec@commercialmls.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CO1PEPF00012E64.namprd05.prod.outlook.com 2026-03-14T06:08:54.158Z 08DE8081AFFF8C82]"
+amyr@commercialmls.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CO1PEPF00012E66.namprd05.prod.outlook.com 2026-03-14T06:08:56.212Z 08DE813F3D2C0E66]"
+djlande@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+anthonypoland@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+herronisland@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+masonrealtors@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+landman@keithfuller.com,TIMEOUT,Socket timeout
+gcarnera@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+kristileeper@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+marie-wood@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+suburbanre@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+cgartland@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+pbradfor@cngc.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CH3PEPF00000012.namprd21.prod.outlook.com 2026-03-14T06:12:37.089Z 08DE812D94859DBB]"
+stacy@stacyhetland.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [SJ1PEPF00001CEA.namprd03.prod.outlook.com 2026-03-14T06:12:39.244Z 08DE80913AAD964C]"
+lstricklandpmv@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+cindyg@dreamsdelivered.com,TIMEOUT,Socket timeout
+m_johnstone@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+shawnmcfarland2003@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+woods_tom@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+tamarap@vtgco.com,REJECTED,SMTP explicit reject (550): 5.1.1 User Unknown
+wcalmon@almoncommercial.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [SJ1PEPF00002325.namprd03.prod.outlook.com 2026-03-14T06:15:01.823Z 08DE80D4448D2CF8]"
+patsheets@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+cynpoland@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+bruce_kay_myreconsultant@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+sandi@rockisland.com,TIMEOUT,Socket timeout
+johne@orcasisland.net,REJECTED,SMTP explicit reject (550): [9D7247@haraka5] client [39.46.9.65] rejected; no rDNS
+sor@rockisland.com,TIMEOUT,Socket timeout
+teri@rockisland.com,TIMEOUT,Socket timeout
+larry_sherwood@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+pambatesllc@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+holland@premier1.net,ACCEPTED,Verified mailbox exists on port 25
+dennism@riserealtyllc.com,NO MX,Domain exists but has no MX records
+swhite@vashonislandrealestate.com,SPAM BLOCK,Connection refused or reset (Likely Blocked)
+eamiad@vashonislandrealestate.com,SPAM BLOCK,Connection refused or reset (Likely Blocked)
+dan_wood12@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+gcdale@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+billa@almoncommercial.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [SA2PEPF00003AEB.namprd02.prod.outlook.com 2026-03-14T06:19:36.708Z 08DE80BBE8021CA6]"
+lakeland11@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+armstrongcarrie@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+jdbacon@par5llc.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [BL02EPF0001A0FF.namprd03.prod.outlook.com 2026-03-14T06:20:17.970Z 08DE8096BBB2E0D3]"
+corinne@kingcountyestates.com,REJECTED,"SMTP explicit reject (550): 5.1.1 The email account that you tried to reach does not exist. Please try
+5.1.1 double-checking the recipient's email address for typos or
+5.1.1 unnecessary spaces. For more information, go to
+5.1.1  https://support.google.com/mail/?p=NoSuchUser ffacd0b85a97d-439fe258d09si15881345f8f.415 - gsmtp"
+bobbiddlerealty@gmail.com,ACCEPTED,Verified mailbox exists on port 25
+robbiden@johnlscott.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [MW1PEPF0001615E.namprd21.prod.outlook.com 2026-03-14T06:20:22.961Z 08DE816D10182678]"
+robin@thebirklands.com,ACCEPTED,Verified mailbox exists on port 25
+mbland@besthomesrealty.net,MX ERROR,All DNS servers failed to respond
+islanderalso@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+bill@billcallahan.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CY4PEPF0000FCC4.namprd03.prod.outlook.com 2026-03-14T06:20:31.572Z 08DE80FBD31F845A]"
+bcampbellc21@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+consultthecarrs@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+carver@sanjuanislands.com,CATCH-ALL,Server accepted test alias on port 25
+billcecil@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+cheatwoodhomes@gmail.com,ACCEPTED,Verified mailbox exists on port 25
+daniella@thelandmarkgroup.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CH2PEPF0000013C.namprd02.prod.outlook.com 2026-03-14T06:22:02.781Z 08DE808F806BFA72]"
+mary@orcasislandrealty.com,TIMEOUT,Socket timeout
+dgcohick@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+billcookbroker@gmail.com,ACCEPTED,Verified mailbox exists on port 25
+hdahlander@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+kendra@landedgentry.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CY4PEPF0000EE3B.namprd03.prod.outlook.com 2026-03-14T06:23:03.020Z 08DE816AEF5D3326]"
+derekdoke@commercialcondos.com,MX ERROR,All DNS servers failed to respond
+aeichler@almoncommercial.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CY4PEPF0000FCBF.namprd03.prod.outlook.com 2026-03-14T06:23:06.504Z 08DE817363A544D6]"
+ariana.engeland@gmail.com,ACCEPTED,Verified mailbox exists on port 25
+katieengland@kw.com,REJECTED,"SMTP explicit reject (550): 5.1.1 The email account that you tried to reach does not exist. Please try
+5.1.1 double-checking the recipient's email address for typos or
+5.1.1 unnecessary spaces. For more information, go to
+5.1.1  https://support.google.com/mail/?p=NoSuchUser ffacd0b85a97d-439fe19596fsi15511767f8f.58 - gsmtp"
+jeff@landmarkcw.com,ACCEPTED,Verified mailbox exists on port 25
+cfarivar@touchstoneappraisal.com,ACCEPTED,Verified mailbox exists on port 25
+forland@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+mfoster@sanjuanislands.com,CATCH-ALL,Server accepted test alias on port 25
+lakewoodeval@gmail.com,ACCEPTED,Verified mailbox exists on port 25
+tim@sanjuanislands.com,CATCH-ALL,Server accepted test alias on port 25
+gortons@rockisland.com,TIMEOUT,Socket timeout
+daniellehaviland@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+lhawley@ifiber.tv,SPAM BLOCK,Connection refused or reset (Likely Blocked)
+dickhelland@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+jbherren@rockisland.com,TIMEOUT,Socket timeout
+jessicahollandsworth@live.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+mernllc@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+capehornland@gmail.com,ACCEPTED,Verified mailbox exists on port 25
+mdesign@rockisland.com,TIMEOUT,Socket timeout
+ed@islandbrokersrealty.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [SJ5PEPF00000209.namprd05.prod.outlook.com 2026-03-14T06:26:44.462Z 08DE80D576D8E1B1]"
+krath@ihdllc.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CH3PEPF0000000E.namprd04.prod.outlook.com 2026-03-14T06:26:46.409Z 08DE80C200F9083E]"
+carol.klander@century21.com,REJECTED,"SMTP explicit reject (550): zen.mimecast.org Listed by XBL, see https://check.spamhaus.org/query/ip/39.46.9.65. Listed by CSS, see https://check.spamhaus.org/query/ip/39.46.9.65. Listed by PBL, see https://check.spamhaus.org/query/ip/39.46.9.65. - https://community.mimecast.com/docs/DOC-1369#550 [qzzGaMicP5uLLTCerDpEhw.usb62]"
+buybuildsellabetterhome@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+dorae@landeproperties.com,TIMEOUT,[Errno 11001] getaddrinfo failed
+landsiedel1@gmail.com,ACCEPTED,Verified mailbox exists on port 25
+mark@islandrealtyllc.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+robleland@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+john@liffland.com,ACCEPTED,Verified mailbox exists on port 25
+deena@deenaloveland.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [SA2PEPF000015CA.namprd03.prod.outlook.com 2026-03-14T06:28:21.093Z 08DE80E8997D52DE]"
+realtor.stevemason@gmail.com,ACCEPTED,Verified mailbox exists on port 25
+dmason6951@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+whitneymason@cbbain.com,REJECTED,"SMTP explicit reject (550): zen.mimecast.org Listed by CSS, see https://check.spamhaus.org/query/ip/39.46.9.65. Listed by PBL, see https://check.spamhaus.org/query/ip/39.46.9.65. Listed by XBL, see https://check.spamhaus.org/query/ip/39.46.9.65. - https://community.mimecast.com/docs/DOC-1369#550 [JkBv4YwwMym1-EaahuRPxw.usb70]"
+joe-mason@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+kevin@susanshelland.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [SN1PEPF00036F3D.namprd05.prod.outlook.com 2026-03-14T06:28:42.298Z 08DE80E03277317A]"
+smcrae@air-pipe.com,SPAM BLOCK,Connection refused or reset (Likely Blocked)
+noreem@dwellingcompany.com,MX ERROR,All DNS servers failed to respond
+jcmoore@air-pipe.com,TIMEOUT,Socket timeout
+mary@sagelandproperties.com,ACCEPTED,Verified mailbox exists on port 25
+irelandagain@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+clynewland@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+ko@kevinoneillconstruction.com,MX ERROR,All DNS servers failed to respond
+kyle@lakelandagency.com,REJECTED,"SMTP explicit reject (550): 5.1.1 The email account that you tried to reach does not exist. Please try
+5.1.1 double-checking the recipient's email address for typos or
+5.1.1 unnecessary spaces. For more information, go to
+5.1.1  https://support.google.com/mail/?p=NoSuchUser ffacd0b85a97d-439fe1957acsi15909828f8f.60 - gsmtp"
+rusty@orcas-island.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [SJ5PEPF000001C9.namprd05.prod.outlook.com 2026-03-14T06:30:11.584Z 08DE80BB0679BC8A]"
+nidaros@rockisland.com,TIMEOUT,Socket timeout
+royrich@rockisland.com,TIMEOUT,Socket timeout
+john@johnrockwood.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [MWH0EPF000C6191.namprd02.prod.outlook.com 2026-03-14T06:31:03.923Z 08DE80F2D8C5BFD1]"
+daverodland@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+toms@investinginfarmland.com,NO MX,Domain exists but has no MX records
+summer@portangeleslandmark.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [BY1PEPF0001AE18.namprd04.prod.outlook.com 2026-03-14T06:31:34.548Z 08DE80A0DB08E9F4]"
+jayseastone@aol.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+andrea@srgllchomes.com,NO MX,Domain exists but has no MX records
+karen_sheets@hotmail.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+homeslotsandland@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+susan@susanshelland.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [BL6PEPF0001AB56.namprd02.prod.outlook.com 2026-03-14T06:32:35.936Z 08DE80D2848C9C0C]"
+skip@cornerstonepropertyadv.com,NO MX,Domain exists but has no MX records
+billandselina@msn.com,ACCEPTED,Verified mailbox exists on port 25
+kingcountyagent@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+toms@rockisland.com,TIMEOUT,Socket timeout
+dave@nwcommercialbrokers.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+heather.sullivan@landsafe.com,REJECTED,SMTP explicit reject (550): 5.1.1 User Unknown
+btelles@ihdllc.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CO1PEPF000075F1.namprd03.prod.outlook.com 2026-03-14T06:33:38.276Z 08DE80C53E3EE87F]"
+judy@flyingislandrealty.com,TIMEOUT,Socket timeout
+chris@bdcommercial.com,MX ERROR,All DNS servers failed to respond
+charliew@rockisland.com,TIMEOUT,Socket timeout
+ewicklund@landcast.com,ACCEPTED,Verified mailbox exists on port 25
+willand1@mac.com,REJECTED,SMTP explicit reject (550): 5.7.1 Mail from IP 39.46.9.65 was rejected due to listing in Spamhaus SBL. For details please see http://www.spamhaus.org/query/bl?ip=39.46.9.65
+tamara@portangeleslandmark.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [MWH0EPF000C618B.namprd02.prod.outlook.com 2026-03-14T06:34:38.145Z 08DE8095B49A4148]"
+lisa@orcasislandrealty.com,TIMEOUT,Socket timeout
+zoewood@johnlscott.com,REJECTED,"SMTP explicit reject (550): 5.7.1 Service unavailable, Client host [39.46.9.65] blocked using Spamhaus. To request removal from this list see https://www.spamhaus.org/query/ip/39.46.9.65 AS(1440) [CY4PEPF0000EDD3.namprd03.prod.outlook.com 2026-03-14T06:35:05.601Z 08DE8138879FD836]"
+wwoodburn@comcast.net,TIMEOUT,[Errno 11001] getaddrinfo failed
+tamiwooding@msn.com,TIMEOUT,Overall verification process exceeded 28s deadline.
+robertwoods_emeraldnw@msn.com,ACCEPTED,Verified mailbox exists on port 25
+kristen@orcasislandrealty.com,TIMEOUT,Socket timeout
+zier@rockisland.com,TIMEOUT,Socket timeout
+abelbuilder@yahoo.com,TIMEOUT,Overall verification process exceeded 28s deadline.
