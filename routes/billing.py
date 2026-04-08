@@ -12,10 +12,9 @@ ENDPOINT_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8000")
 
 PACKS = {
-    "basic": {"name": "Basic Pack", "price": 999, "credits": 50000},
-    "pro": {"name": "Pro Pack", "price": 1499, "credits": 150000},
-    "growth": {"name": "Growth Pack", "price": 3999, "credits": 500000},
-    "enterprise": {"name": "Enterprise Pack", "price": 6999, "credits": 1000000},
+    "starter": {"name": "Starter Plan", "price": 699, "credits": 50000},
+    "pro": {"name": "Pro Plan", "price": 1699, "credits": 100000},
+    "ultimate": {"name": "Ultimate Plan", "price": 4999, "credits": 500000},
 }
 
 @router.post("/create-checkout")
