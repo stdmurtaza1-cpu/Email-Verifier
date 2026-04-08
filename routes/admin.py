@@ -46,10 +46,10 @@ async def upgrade_user_plan(data: UpgradePlanDTO, db: Session = Depends(get_db),
     if plan == 'free':
         user.credits = 100
     elif plan == 'starter':
-        user.credits = 100000
+        user.credits = 50000
     elif plan == 'pro':
-        user.credits = 150000
-    elif plan == 'enterprise':
+        user.credits = 100000
+    elif plan == 'ultimate':
         user.credits = 500000
     else:
         raise HTTPException(status_code=400, detail="Invalid plan specified")
