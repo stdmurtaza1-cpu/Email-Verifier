@@ -16,3 +16,21 @@ sendgrid
 
 aioredis
 stripe
+aiodns
+aioredis
+aiosmtplib
+celery
+dnspython
+fastapi
+gunicorn
+passlib[bcrypt]
+psycopg2-binary
+python-dotenv
+python-jose[cryptography]
+python-multipart
+redis
+sendgrid
+slowapi
+sqlalchemy
+stripe
+uvicorn[standard]
