@@ -1377,16 +1377,30 @@ async function loadPartnerDashboard() {
                 } else {
                     tbodyA.innerHTML = '';
                     approved.forEach(u => {
-                        tbodyA.innerHTML += `
-                            <tr>
-                                <td>${u.email}</td>
-                                <td>${u.daily_limit}</td>
-                                <td>${u.used_today}</td>
-                                <td>
-                                    <button class="btn btn-outline" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; border-color: var(--danger); color: var(--danger);" onclick="revokePartner(${u.id})">Revoke</button>
-                                </td>
-                            </tr>
-                        `;
+                        const tr = document.createElement('tr');
+
+                        const tdEmail = document.createElement('td');
+                        tdEmail.textContent = u.email;
+
+                        const tdLimit = document.createElement('td');
+                        tdLimit.textContent = u.daily_limit;
+
+                        const tdUsed = document.createElement('td');
+                        tdUsed.textContent = u.used_today;
+
+                        const tdAction = document.createElement('td');
+                        const btn = document.createElement('button');
+                        btn.className = 'btn btn-outline';
+                        btn.style.cssText = 'padding: 0.2rem 0.6rem; font-size: 0.8rem; border-color: var(--danger); color: var(--danger);';
+                        btn.textContent = 'Revoke';
+                        btn.addEventListener('click', () => revokePartner(u.id));
+                        tdAction.appendChild(btn);
+
+                        tr.appendChild(tdEmail);
+                        tr.appendChild(tdLimit);
+                        tr.appendChild(tdUsed);
+                        tr.appendChild(tdAction);
+                        tbodyA.appendChild(tr);
                     });
                 }
             }
