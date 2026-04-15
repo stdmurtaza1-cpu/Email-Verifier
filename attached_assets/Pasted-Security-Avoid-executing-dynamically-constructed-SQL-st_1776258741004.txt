@@ -1,0 +1,244 @@
+Security
+Avoid executing dynamically constructed SQL strings as this bypasses SQLAlchemy's SQL injection protections. Dynamic string construction makes the query vulnerable when user input is involved. Use `execute(text("... :param_name"), param_name=value)` with named parameters instead of f-strings/concatenation to ensure proper escaping.
+
+Avoid executing dynamically constructed SQL strings as this bypasses SQLAlchemy's SQL injection protections. Dynamic string construction makes the query vulnerable when user input is involved. Use `execute(text("... :param_name"), param_name=value)` with named parameters instead of f-strings/concatenation to ensure proper escaping.
+migrate_email_result.py
+    cursor.execute(f"PRAGMA table_info({table})")
+
+Hide
+
+Fix with Agent
+Security
+Avoid executing dynamically constructed SQL strings as this bypasses SQLAlchemy's SQL injection protections. Dynamic string construction makes the query vulnerable when user input is involved. Use `execute(text("... :param_name"), param_name=value)` with named parameters instead of f-strings/concatenation to ensure proper escaping.
+
+Avoid executing dynamically constructed SQL strings as this bypasses SQLAlchemy's SQL injection protections. Dynamic string construction makes the query vulnerable when user input is involved. Use `execute(text("... :param_name"), param_name=value)` with named parameters instead of f-strings/concatenation to ensure proper escaping.
+migrate_email_result.py
+        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+Hide
+
+Fix with Agent
+Security
+Avoid sqlalchemy.text() with dynamically constructed SQL strings as this bypasses SQLAlchemy's SQL injection protections. The constructed SQL is passed to the database mostly unchanged, making it vulnerable when user input is involved. Replace f-strings/concatenation with named parameters like `text("... :param_name")` and pass parameters separately to execute().
+
+Avoid sqlalchemy.text() with dynamically constructed SQL strings as this bypasses SQLAlchemy's SQL injection protections. The constructed SQL is passed to the database mostly unchanged, making it vulnerable when user input is involved. Replace f-strings/concatenation with named parameters like `text("... :param_name")` and pass parameters separately to execute().
+migrate_sqlite_to_pg.py
+            pg_session.execute(text(f"SELECT setval('{seq}', COALESCE((SELECT MAX(id) FROM {table}), 0) + 1, false);"))
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/admin.js
+        tr.innerHTML = `
+            <td style="padding: 1rem; font-weight: 600;">${u.email}</td>
+            <td style="padding: 1rem;"><span class="badge ${u.plan}" style="text-transform:uppercase;">${u.plan}</span></td>
+            <td style="padding: 1rem;">${(u.credits || 0).toLocaleString()}</td>
+            <td style="padding: 1rem; color: var(--text-muted);">${u.joined_date ? u.joined_date.split('T')[0] : 'N/A'}</td>
+            <td style="padding: 1rem; font-weight: 500; color: var(--success);">${(u.total_verifications || 0).toLocaleString()}</td>
+            <td style="padding: 1rem; font-weight: 500; color: var(--warning);">${(u.monthly_verifications || 0).toLocaleString()}</td>
+            <td style="padding: 1rem;">
+                <span style="color: ${isAct ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
+                    ${isAct ? 'Active' : 'Suspended'}
+                </span>
+            </td>
+            <td style="padding: 1rem;">
+                <button class="btn" style="background: var(--primary); padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; color: #000;" onclick="openUserModal('${u.email}')">View Details</button>
+            </td>
+        `;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/admin.js
+        tr.innerHTML = `
+            <td style="padding: 1rem; font-weight: 600;">${k.email}</td>
+            <td style="padding: 1rem; font-family: monospace; color: var(--secondary);">${k.api_key}</td>
+            <td style="padding: 1rem;">
+                <span style="color: ${k.is_active ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
+                    ${k.is_active ? 'Active' : 'Inactive'}
+                </span>
+            </td>
+            <td style="padding: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: ${k.is_active ? 'var(--warning)' : 'var(--success)'}; color: #000;" onclick="toggleKeyStatus(${k.id}, ${!k.is_active})">
+                    ${k.is_active ? 'Disable' : 'Enable'}
+                </button>
+                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--danger); color: white;" onclick="revokeKey(${k.id})">Revoke</button>
+            </td>
+        `;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/admin.js
+        tr.innerHTML = `
+            <td style="padding: 1rem; font-weight: 600; font-family: monospace; color: var(--secondary);">${w.worker_name}</td>
+            <td style="padding: 1rem;">
+                <span style="color: ${w.status === 'online' ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
+                    ${w.status.toUpperCase()}
+                </span>
+            </td>
+            <td style="padding: 1rem;">${w.assigned_ip_count} IPs Configured Native Scope</td>
+        `;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/admin.js
+        tr.innerHTML = `
+            <td style="padding: 1rem; font-weight: bold; font-family: monospace;">${ip.ip_address}</td>
+            <td style="padding: 1rem; font-weight: bold; color: ${healthColor};">${ip.health_score} / 100</td>
+            <td style="padding: 1rem; color: ${statColor}; font-weight: bold; text-transform: uppercase;">${ip.status}</td>
+            <td style="padding: 1rem; color: ${nodeOwner.includes("Global") ? 'var(--text-muted)' : 'var(--secondary)'};">${nodeOwner}</td>
+            <td style="padding: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--secondary); color: #000;" onclick="openAssignIpModal('${ip.ip_address}')">Assign Node Route</button>
+                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--danger); color: white;" onclick="adminFreezeIp('${ip.id}')">Force Freeze</button>
+            </td>
+        `;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/admin.js
+                 sel.innerHTML += `<option value="${w.worker_name}">${w.worker_name}</option>`;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/app.js
+                    dynamicContainer.innerHTML = data.html_content;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/app.js
+                statusEl.innerHTML = `Active! Sharing Partner's limit.<br>Used: ${currentUser.partner_credits_used_today || 0} / ${currentUser.partner_daily_limit} today`;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/app.js
+            resBox.innerHTML = `
+                <div class="flex flex-between align-center">
+                    <strong>${data.email}</strong>
+                    <span class="badge-${data.status.replace(' ', '').toLowerCase()}">${data.status}</span>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; text-align: left;">${data.details}</p>
+                ${blockNote}
+            `;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/app.js
+            resBox.innerHTML = `
+                <div class="flex flex-between align-center">
+                    <strong>${data.email}</strong>
+                    <span class="badge badge-${data.status.replace(' ', '').toLowerCase()}">${data.status}</span>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; text-align: left;">${data.details}</p>
+                ${blockNote}
+            `;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/app.js
+            h.innerHTML = `
+                <div class="flex flex-between align-center mb-2 p-2" style="background: rgba(255,255,255,0.05); border-radius: 4px;">
+                    <span style="font-size: 0.85rem;">${data.email}</span>
+                    <span class="badge-${data.status.replace(' ', '').toLowerCase()}" style="font-size:0.7rem;">${data.status}</span>
+                </div>
+            `;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/app.js
+    tr.innerHTML = `
+        <td class="p-2" style="font-size:0.9rem;">${resultData.email}</td>
+        <td class="p-2"><span class="${badgeClass}" style="padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${statusLabel}</span></td>
+        <td class="p-2" style="font-size:0.9rem;">${resultData.score !== undefined ? resultData.score : '-'}</td>
+        <td class="p-2" style="font-size:0.9rem;">${syntaxIcon}</td>
+        <td class="p-2" style="font-size:0.9rem;">${mxIcon}</td>
+        <td class="p-2" style="font-size:0.9rem;">${smtpIcon}</td>
+        <td class="p-2" style="font-size:0.9rem; color: ${dispColor}">${disposable}</td>
+    `;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/app.js
+        item.innerHTML = `
+            <span style="font-size: 0.85rem;">${resultData.email}</span>
+            <span class="badge badge-${statusLabel.replace(/\s+/g, '').toLowerCase()}" style="font-size:0.7rem;">${statusLabel}</span>
+        `;
+
+Hide
+
+Fix with Agent
+Security
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+
+XSS Vulnerability: Unsafe DOM Manipulation. User controlled data in methods like `innerHTML`, `outerHTML` or `document.write` is an anti-pattern that can lead to XSS vulnerabilities. Replace with safe DOM methods: Use createElement() + appendChild() + textContent for dynamic content. Avoid use innerHTML with user data: Even escaped data can be risky. If HTML injection is absolutely necessary: Sanitize with DOMPurify library first.
+static/app.js
+                tr.innerHTML = `
+                    <td><strong>${f.filename}</strong></td>
+                    <td class="text-muted"><small>${(f.size / 1024).toFixed(2)} KB</small></td>
+                    <td class="text-muted"><small>${new Date(f.date).toLocaleDateString()}</small></td>
+                    <td>
+                        <button class="btn btn-primary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; margin-right: 0.5rem;" onclick="downloadUserFile(${f.id})">Download</button>
+                        <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.8rem; border-color: var(--danger); color: var(--danger);" onclick="deleteUserFile(${f.id})">Delete</button>
+                    </td>
+                `;
+
+Hide
+
+Fix with Agent

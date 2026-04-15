@@ -1,4 +1,14 @@
 /* ADMIN.JS - PREMIUM REWRITE */
+
+function esc(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 const DOM = {
     authView: document.getElementById('admin-auth-view'),
     dashView: document.getElementById('admin-dashboard-view'),
@@ -213,10 +223,10 @@ function renderUsersTable(usersArray) {
         const isAct = u.is_active !== false;
         
         tr.innerHTML = `
-            <td style="padding: 1rem; font-weight: 600;">${u.email}</td>
-            <td style="padding: 1rem;"><span class="badge ${u.plan}" style="text-transform:uppercase;">${u.plan}</span></td>
+            <td style="padding: 1rem; font-weight: 600;">${esc(u.email)}</td>
+            <td style="padding: 1rem;"><span class="badge ${esc(u.plan)}" style="text-transform:uppercase;">${esc(u.plan)}</span></td>
             <td style="padding: 1rem;">${(u.credits || 0).toLocaleString()}</td>
-            <td style="padding: 1rem; color: var(--text-muted);">${u.joined_date ? u.joined_date.split('T')[0] : 'N/A'}</td>
+            <td style="padding: 1rem; color: var(--text-muted);">${u.joined_date ? esc(u.joined_date.split('T')[0]) : 'N/A'}</td>
             <td style="padding: 1rem; font-weight: 500; color: var(--success);">${(u.total_verifications || 0).toLocaleString()}</td>
             <td style="padding: 1rem; font-weight: 500; color: var(--warning);">${(u.monthly_verifications || 0).toLocaleString()}</td>
             <td style="padding: 1rem;">
@@ -225,9 +235,12 @@ function renderUsersTable(usersArray) {
                 </span>
             </td>
             <td style="padding: 1rem;">
-                <button class="btn" style="background: var(--primary); padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; color: #000;" onclick="openUserModal('${u.email}')">View Details</button>
+                <button class="btn" style="background: var(--primary); padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; color: #000;" data-email="${esc(u.email)}">View Details</button>
             </td>
         `;
+        tr.querySelector('button[data-email]').addEventListener('click', function() {
+            openUserModal(this.dataset.email);
+        });
         DOM.usersBody.appendChild(tr);
     });
 }
@@ -238,8 +251,8 @@ function renderKeysTable(keysArray) {
         const tr = document.createElement('tr');
         tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
         tr.innerHTML = `
-            <td style="padding: 1rem; font-weight: 600;">${k.email}</td>
-            <td style="padding: 1rem; font-family: monospace; color: var(--secondary);">${k.api_key}</td>
+            <td style="padding: 1rem; font-weight: 600;">${esc(k.email)}</td>
+            <td style="padding: 1rem; font-family: monospace; color: var(--secondary);">${esc(k.api_key)}</td>
             <td style="padding: 1rem;">
                 <span style="color: ${k.is_active ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
                     ${k.is_active ? 'Active' : 'Inactive'}
@@ -383,13 +396,13 @@ function renderWorkersTable(workersArray) {
         tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
         
         tr.innerHTML = `
-            <td style="padding: 1rem; font-weight: 600; font-family: monospace; color: var(--secondary);">${w.worker_name}</td>
+            <td style="padding: 1rem; font-weight: 600; font-family: monospace; color: var(--secondary);">${esc(w.worker_name)}</td>
             <td style="padding: 1rem;">
                 <span style="color: ${w.status === 'online' ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
-                    ${w.status.toUpperCase()}
+                    ${esc(w.status).toUpperCase()}
                 </span>
             </td>
-            <td style="padding: 1rem;">${w.assigned_ip_count} IPs Configured Native Scope</td>
+            <td style="padding: 1rem;">${Number(w.assigned_ip_count) || 0} IPs Configured Native Scope</td>
         `;
         DOM.workersBody.appendChild(tr);
     });
@@ -416,15 +429,18 @@ function renderIpsTable(ipsArray, workersArray) {
         let healthColor = ip.health_score > 70 ? 'var(--success)' : (ip.health_score > 40 ? 'var(--warning)' : 'var(--danger)');
         
         tr.innerHTML = `
-            <td style="padding: 1rem; font-weight: bold; font-family: monospace;">${ip.ip_address}</td>
-            <td style="padding: 1rem; font-weight: bold; color: ${healthColor};">${ip.health_score} / 100</td>
-            <td style="padding: 1rem; color: ${statColor}; font-weight: bold; text-transform: uppercase;">${ip.status}</td>
-            <td style="padding: 1rem; color: ${nodeOwner.includes("Global") ? 'var(--text-muted)' : 'var(--secondary)'};">${nodeOwner}</td>
+            <td style="padding: 1rem; font-weight: bold; font-family: monospace;">${esc(ip.ip_address)}</td>
+            <td style="padding: 1rem; font-weight: bold; color: ${healthColor};">${Number(ip.health_score) || 0} / 100</td>
+            <td style="padding: 1rem; color: ${statColor}; font-weight: bold; text-transform: uppercase;">${esc(ip.status)}</td>
+            <td style="padding: 1rem; color: ${nodeOwner.includes("Global") ? 'var(--text-muted)' : 'var(--secondary)'};">${esc(nodeOwner)}</td>
             <td style="padding: 1rem; display: flex; gap: 0.5rem;">
-                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--secondary); color: #000;" onclick="openAssignIpModal('${ip.ip_address}')">Assign Node Route</button>
+                <button class="btn assign-btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--secondary); color: #000;" data-ip="${esc(ip.ip_address)}">Assign Node Route</button>
                 <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--danger); color: white;" onclick="adminFreezeIp('${ip.id}')">Force Freeze</button>
             </td>
         `;
+        tr.querySelector('button.assign-btn').addEventListener('click', function() {
+            openAssignIpModal(this.dataset.ip);
+        });
         DOM.ipsBody.appendChild(tr);
     });
 }
@@ -471,7 +487,10 @@ window.openAssignIpModal = async function(ip_address) {
             const sel = document.getElementById('assign-worker-select');
             sel.innerHTML = '<option value="GLOBAL_RELEASE">-- Release to Global Pool --</option>';
             data.workers.forEach(w => {
-                 sel.innerHTML += `<option value="${w.worker_name}">${w.worker_name}</option>`;
+                const opt = document.createElement('option');
+                opt.value = w.worker_name;
+                opt.textContent = w.worker_name;
+                sel.appendChild(opt);
             });
         }
         DOM.assignWorkerModal.classList.remove('hidden');
