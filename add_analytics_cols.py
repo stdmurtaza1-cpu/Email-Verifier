@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import re
 import datetime
 
 db_path = './api_keys.db'
@@ -11,6 +12,8 @@ conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
 current_month = datetime.datetime.utcnow().strftime('%Y-%m')
+if not re.fullmatch(r'\d{4}-\d{2}', current_month):
+    raise ValueError(f"Unexpected current_month format: {current_month}")
 
 try:
     cursor.execute("ALTER TABLE users ADD COLUMN total_verifications INTEGER DEFAULT 0")
