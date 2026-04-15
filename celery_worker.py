@@ -154,6 +154,25 @@ def process_bulk_job(
 
         return await asyncio.gather(*[bounded(e) for e in chunk], return_exceptions=True)
 
+    def _is_paused(job_id: str) -> bool:
+        """Check if this job has been paused via Redis flag."""
+        try:
+            import redis as _redis
+            r = _redis.from_url(redis_url, decode_responses=True)
+            return r.get(f"job:{job_id}:paused") == "1"
+        except Exception:
+            return False
+
+    def _is_cancelled(job_id: str) -> bool:
+        """Check if this job has been cancelled."""
+        try:
+            import redis as _redis
+            r = _redis.from_url(redis_url, decode_responses=True)
+            job_data = r.hgetall(f"job:{job_id}")
+            return job_data.get("status") == "cancelled"
+        except Exception:
+            return False
+
     try:
         with open(results_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -165,6 +184,23 @@ def process_bulk_job(
 
             processed = 0
             for start in range(0, total, BULK_CHUNK_SIZE):
+                # Check for pause: wait until resumed
+                while _is_paused(job_id):
+                    _cache_update(job_id, {"status": "paused", "processed": processed})
+                    import time as _time
+                    _time.sleep(3)
+                    if _is_cancelled(job_id):
+                        break
+
+                # Check for cancellation
+                if _is_cancelled(job_id):
+                    _cache_update(job_id, {"status": "cancelled", "processed": processed})
+                    logger.info(f"[{job_id}] Job cancelled by user.")
+                    return {"job_id": job_id, "total": total, "status": "cancelled"}
+
+                # Resume status
+                _cache_update(job_id, {"status": "processing", "processed": processed})
+
                 chunk = emails[start : start + BULK_CHUNK_SIZE]
                 results = asyncio.run(_run_chunk(chunk))
 

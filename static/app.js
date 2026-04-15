@@ -3,6 +3,82 @@ let authToken = localStorage.getItem('ninja_jwt');
 let currentUser = null;
 let currentView = 'page-home';
 window.lastBulkResults = [];
+window._bulkIsPaused = false;
+
+// ==========================================
+// THEME TOGGLE
+// ==========================================
+function toggleTheme() {
+    const body = document.body;
+    const btn = document.getElementById('theme-toggle');
+    if (body.classList.toggle('light-theme')) {
+        if (btn) btn.textContent = '☀️';
+        localStorage.setItem('ninja_theme', 'light');
+        if (mockChartInstance) {
+            mockChartInstance.options.plugins.legend.labels.color = '#1a1a2e';
+            mockChartInstance.update();
+        }
+    } else {
+        if (btn) btn.textContent = '🌙';
+        localStorage.setItem('ninja_theme', 'dark');
+        if (mockChartInstance) {
+            mockChartInstance.options.plugins.legend.labels.color = '#f8f9fa';
+            mockChartInstance.update();
+        }
+    }
+}
+
+// Apply saved theme on load
+(function() {
+    const saved = localStorage.getItem('ninja_theme');
+    if (saved === 'light') {
+        document.body.classList.add('light-theme');
+        const btn = document.getElementById('theme-toggle');
+        if (btn) btn.textContent = '☀️';
+    }
+})();
+
+// ==========================================
+// BULK JOB PAUSE / RESUME
+// ==========================================
+async function toggleBulkPause() {
+    const pauseBtn = document.getElementById('bulk-pause-btn');
+    const token = localStorage.getItem('ninja_jwt') || localStorage.getItem('token');
+    if (!token || !window._bulkJobId) {
+        // For small bulk jobs (frontend-side), toggle pause flag
+        window._bulkIsPaused = !window._bulkIsPaused;
+        if (pauseBtn) {
+            pauseBtn.textContent = window._bulkIsPaused ? '▶ Resume' : '⏸ Pause';
+            pauseBtn.style.background = window._bulkIsPaused
+                ? 'linear-gradient(135deg,#10b981,#059669)'
+                : 'linear-gradient(135deg,#f59e0b,#d97706)';
+        }
+        return;
+    }
+    try {
+        if (!window._bulkIsPaused) {
+            await fetch('/api/bulk-verify/pause/' + window._bulkJobId, {
+                method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
+            });
+            window._bulkIsPaused = true;
+            if (pauseBtn) {
+                pauseBtn.textContent = '▶ Resume';
+                pauseBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+            }
+        } else {
+            await fetch('/api/bulk-verify/resume/' + window._bulkJobId, {
+                method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
+            });
+            window._bulkIsPaused = false;
+            if (pauseBtn) {
+                pauseBtn.textContent = '⏸ Pause';
+                pauseBtn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+            }
+        }
+    } catch(e) {
+        console.error('Pause/Resume error:', e);
+    }
+}
 
 // Expose routing exactly as requested
 window.showPage = function(pageName) {
@@ -628,30 +704,100 @@ if(authSingleBtn) {
 // BULK VERIFIER LOGIC
 // ==========================================
 let mockChartInstance = null;
+
+// Live pie chart counters
+const liveChartCounts = { accepted: 0, catchall: 0, rejected: 0, spamblock: 0, invalid: 0, greylisted: 0, disposable: 0 };
+
 function initChart() {
     if(mockChartInstance) return;
-    const ctx = document.getElementById('dash-donut-chart').getContext('2d');
+    const canvasEl = document.getElementById('dash-donut-chart');
+    if (!canvasEl) return;
+    const ctx = canvasEl.getContext('2d');
+    const isLight = document.body.classList.contains('light-theme');
+    const legendColor = isLight ? '#1a1a2e' : '#f8f9fa';
     mockChartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Accepted', 'Rejected', 'Catch-All', 'Greylisted', 'Timeout'],
+            labels: ['Accepted', 'Catch-All', 'Rejected', 'Spam Block', 'Invalid', 'Greylisted', 'Disposable'],
             datasets: [{
-                data: [0, 0, 0, 0, 0],
+                data: [0, 0, 0, 0, 0, 0, 0],
                 backgroundColor: [
-                    '#00f260', '#ff3366', '#00e676', '#888899', '#ffb300'
+                    '#00f260', '#00e676', '#ff3366', '#ff9800', '#607d8b', '#ffc107', '#e65100'
                 ],
-                borderWidth: 0
+                borderWidth: 2,
+                borderColor: isLight ? '#f0f4f8' : '#050505',
+                hoverOffset: 8
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: { duration: 400 },
             plugins: {
-                legend: { position: 'right', labels: { color: '#f8f9fa', font: { family: 'Outfit' } } }
+                legend: {
+                    position: 'right',
+                    labels: {
+                        color: legendColor,
+                        font: { family: 'Outfit', size: 12 },
+                        padding: 12,
+                        usePointStyle: true,
+                        pointStyleWidth: 10
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0;
+                            return ` ${ctx.label}: ${ctx.parsed} (${pct}%)`;
+                        }
+                    }
+                }
             }
         }
     });
 }
+
+function updateChartFromCounts() {
+    if (!mockChartInstance) return;
+    const d = liveChartCounts;
+    mockChartInstance.data.datasets[0].data = [
+        d.accepted, d.catchall, d.rejected, d.spamblock, d.invalid, d.greylisted, d.disposable
+    ];
+    mockChartInstance.update('none');
+}
+
+window.updateLiveStats = function(status, isDisposable) {
+    const s = (status || '').toUpperCase().replace(/\s+/g, '');
+    const countMap = {
+        'ACCEPTED': 'count-accepted',
+        'CATCH_ALL': 'count-catchall', 'CATCHALL': 'count-catchall',
+        'REJECTED': 'count-rejected', 'LIKELYINVALID': 'count-rejected', 'INVALID': 'count-rejected',
+        'SPAMBLOCK': 'count-spamblock', 'SPAM BLOCK': 'count-spamblock',
+        'LIKELYINVALID': 'count-mxerror', 'NOMX': 'count-mxerror',
+        'GREYLISTED': 'count-greylisted',
+    };
+    const chartMap = {
+        'ACCEPTED': 'accepted',
+        'CATCH_ALL': 'catchall', 'CATCHALL': 'catchall',
+        'REJECTED': 'rejected', 'LIKELYINVALID': 'invalid', 'INVALID': 'invalid',
+        'SPAMBLOCK': 'spamblock',
+        'GREYLISTED': 'greylisted',
+    };
+    const elId = countMap[s];
+    if (elId) {
+        const el = document.getElementById(elId);
+        if (el) el.textContent = parseInt(el.textContent || '0') + 1;
+    }
+    const chartKey = chartMap[s];
+    if (chartKey) liveChartCounts[chartKey]++;
+    if (isDisposable) {
+        liveChartCounts.disposable++;
+        const dispEl = document.getElementById('count-disposable');
+        if (dispEl) dispEl.textContent = parseInt(dispEl.textContent || '0') + 1;
+    }
+    updateChartFromCounts();
+};
 
 window.bulkResultsData = [];
 
@@ -682,9 +828,10 @@ window.addRowToTable = function(resultData) {
     `;
     tableBody.appendChild(tr);
 
-    // Update live stats
+    // Update live stats and live pie chart
+    const isDisp = !!(resultData.disposable || resultData.is_disposable);
     if (typeof window.updateLiveStats === 'function') {
-        window.updateLiveStats(statusLabel);
+        window.updateLiveStats(statusLabel, isDisp);
     }
 
     // Also update history feed
@@ -806,9 +953,21 @@ async function startBulkVerify() {
 
   if (startBtn) { startBtn.disabled = true; startBtn.innerHTML = '<span>Starting...</span>'; }
   if (stopBtn) stopBtn.style.display = 'inline-block';
+  const pauseBtn = document.getElementById('bulk-pause-btn');
+  if (pauseBtn) {
+      pauseBtn.style.display = 'inline-block';
+      pauseBtn.textContent = '⏸ Pause';
+      pauseBtn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+  }
   if (progressSection) progressSection.classList.remove('hidden');
   if (tbody) tbody.innerHTML = '';
   if (downloadBtn) downloadBtn.classList.add('hidden');
+
+  // Reset live chart counts
+  Object.keys(liveChartCounts).forEach(k => liveChartCounts[k] = 0);
+  if (mockChartInstance) updateChartFromCounts();
+  window._bulkIsPaused = false;
+  window._bulkJobId = null;
 
   // --- Large bulk (e.g. 1M): use background job, poll status, then download CSV ---
   if (emails.length > BULK_LARGE_THRESHOLD) {
@@ -862,8 +1021,17 @@ async function startBulkVerify() {
           if (pBar) pBar.style.width = '100%';
           break;
         }
+        if (st.status === 'paused') {
+          if (pText) pText.textContent = '⏸ Job paused at ' + (st.processed || 0).toLocaleString() + '/' + (st.total || 0).toLocaleString() + ' — click Resume to continue.';
+          await sleep(3000);
+          continue;
+        }
         if (st.status === 'failed') {
           if (pText) pText.textContent = '❌ Job failed: ' + (st.error || 'Unknown error');
+          break;
+        }
+        if (st.status === 'cancelled') {
+          if (pText) pText.textContent = '🚫 Job cancelled.';
           break;
         }
         await sleep(2500);
@@ -874,6 +1042,7 @@ async function startBulkVerify() {
       window.isVerifying = false;
       if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = '<span id="bulk-btn-text">🚀 Start Verification</span>'; }
       if (stopBtn) stopBtn.style.display = 'none';
+      if (pauseBtn) pauseBtn.style.display = 'none';
     }
     return;
   }
@@ -884,7 +1053,7 @@ async function startBulkVerify() {
   window.isVerifying = true;
   if (liveStats) {
     liveStats.style.display = 'flex';
-    ['count-accepted', 'count-catchall', 'count-rejected', 'count-timeout', 'count-spamblock', 'count-mxerror', 'count-unverifiable', 'count-greylisted'].forEach(id => {
+    ['count-accepted', 'count-catchall', 'count-rejected', 'count-spamblock', 'count-mxerror', 'count-greylisted', 'count-disposable'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = '0';
     });
@@ -893,6 +1062,11 @@ async function startBulkVerify() {
 
   try {
     for (let i = 0; i < emails.length; i++) {
+      if (!window.isVerifying) break;
+      // Handle pause for small bulk
+      while (window._bulkIsPaused && window.isVerifying) {
+          await sleep(500);
+      }
       if (!window.isVerifying) break;
       const email = emails[i];
       const pText = document.getElementById('bulk-progress-text');
@@ -906,8 +1080,10 @@ async function startBulkVerify() {
     }
   } finally {
     window.isVerifying = false;
+    window._bulkIsPaused = false;
     if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = '<span id="bulk-btn-text">🚀 Start Verification</span>'; }
     if (stopBtn) stopBtn.style.display = 'none';
+    if (pauseBtn) pauseBtn.style.display = 'none';
     const pText = document.getElementById('bulk-progress-text');
     if (pText) pText.textContent = '✅ Complete! ' + window.bulkResultsData.length + ' emails processed.';
     if (downloadBtn) {
@@ -938,39 +1114,14 @@ async function downloadBulkJobCSV(jobId, token) {
 // Stop button function
 function stopBulkVerify() {
   window.isVerifying = false;
-}
-
-function updateLiveStats(status) {
-  const map = {
-    'ACCEPTED': 'count-accepted',
-    'CATCH-ALL': 'count-catchall',
-    'REJECTED': 'count-rejected',
-    'TIMEOUT': 'count-timeout',
-    'SPAM BLOCK': 'count-spamblock',
-    'MX ERROR': 'count-mxerror',
-    'UNVERIFIABLE': 'count-unverifiable',
-    'GREYLISTED': 'count-greylisted'
-  };
-  const id = map[status.toUpperCase()];
-  if (id) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = parseInt(el.textContent || 0) + 1;
-  }
-  
-  if (mockChartInstance) {
-      const idxMap = {'ACCEPTED':0, 'REJECTED':1, 'CATCH-ALL':2, 'GREYLISTED':3, 'TIMEOUT':4};
-      const cIdx = idxMap[status.toUpperCase()];
-      if (cIdx !== undefined) {
-          mockChartInstance.data.datasets[0].data[cIdx]++;
-          mockChartInstance.update();
-      }
-  }
+  window._bulkIsPaused = false;
+  const pauseBtn = document.getElementById('bulk-pause-btn');
+  if (pauseBtn) { pauseBtn.style.display = 'none'; pauseBtn.textContent = '⏸ Pause'; }
 }
 
 window.startBulkVerify = startBulkVerify;
 window.stopBulkVerify = stopBulkVerify;
 window.sleep = sleep;
-window.updateLiveStats = updateLiveStats;
 
 window.downloadBulkCSV = function() {
     if (!window.bulkResultsData || window.bulkResultsData.length === 0) return;

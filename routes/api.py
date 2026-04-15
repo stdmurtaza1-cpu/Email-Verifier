@@ -1,7 +1,7 @@
 import asyncio
 import secrets
 import hashlib
-from cache import cache_hset, cache_hgetall
+from cache import cache_hset, cache_hgetall, cache_set
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from typing import Optional
@@ -347,6 +347,34 @@ async def bulk_job_download(job_id: str, current_user: User = Depends(get_curren
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="Result file not found.")
     return FileResponse(path, filename=f"verified_{job_id}.csv", media_type="text/csv")
+
+
+@router.post("/bulk-verify/pause/{job_id}")
+async def bulk_job_pause(job_id: str, current_user: User = Depends(get_current_user)):
+    """Pause a running bulk job. The job will finish the current chunk then wait."""
+    job = await cache_hgetall(f"job:{job_id}")
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    true_user_id = getattr(current_user, 'original_id', current_user.id)
+    if str(job.get("user_id")) != str(true_user_id):
+        raise HTTPException(status_code=403, detail="Not your job.")
+    if job.get("status") not in ("processing", "queued"):
+        raise HTTPException(status_code=400, detail=f"Job cannot be paused in status: {job.get('status')}")
+    await cache_set(f"job:{job_id}:paused", "1", ttl=86400)
+    return {"job_id": job_id, "action": "paused"}
+
+
+@router.post("/bulk-verify/resume/{job_id}")
+async def bulk_job_resume(job_id: str, current_user: User = Depends(get_current_user)):
+    """Resume a paused bulk job."""
+    job = await cache_hgetall(f"job:{job_id}")
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    true_user_id = getattr(current_user, 'original_id', current_user.id)
+    if str(job.get("user_id")) != str(true_user_id):
+        raise HTTPException(status_code=403, detail="Not your job.")
+    await cache_set(f"job:{job_id}:paused", "0", ttl=86400)
+    return {"job_id": job_id, "action": "resumed"}
 
 
 class BatchVerifyRequest(BaseModel):
