@@ -265,14 +265,21 @@ async def _smtp_handshake(smtp, mode: str):
 async def _smtp_verify_email(smtp, domain: str, email: str) -> Tuple[int, str, int]:
     loop = asyncio.get_running_loop()
     def _exchange():
-        smtp.mail(MAIL_FROM)
-        c, m = smtp.rcpt(email)
-        if c == 250:
-            fake = f"test{random.randint(10000, 99999)}@{domain}"
+        try:
             smtp.mail(MAIL_FROM)
-            fc, _ = smtp.rcpt(fake)
-            return c, m, fc
-        return c, m, 0
+            c, m = smtp.rcpt(email)
+            if c == 250:
+                fake = f"test{random.randint(10000, 99999)}@{domain}"
+                try:
+                    smtp.rset()
+                    smtp.mail(MAIL_FROM)
+                    fc, _ = smtp.rcpt(fake)
+                except Exception:
+                    fc = 0
+                return c, m, fc
+            return c, m, 0
+        except Exception as e:
+            raise e
     return await loop.run_in_executor(None, _exchange)
 
 # ── Dynamic IP Fault Tolerance Tracking ───────────────────────────────────────
@@ -397,11 +404,11 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
     if not await _check_smtp_rate_limit(domain):
         return "RATE_LIMITED", f"Too many SMTP requests to {domain} this minute. Try again shortly."
 
-    # Smarter port order
+    # Smarter port order: prioritize port 25 for MX servers
     ports = [
+        (25, 'plain'),
         (587, 'starttls'),
-        (465, 'ssl'),
-        (25, 'plain')
+        (465, 'ssl')
     ]
 
     last_status = "UNKNOWN"

@@ -47,7 +47,7 @@ celery_app.conf.update(
 )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-BULK_CHUNK_SIZE = 2000
+BULK_CHUNK_SIZE = 100
 BULK_CONCURRENCY = 50
 JOBS_DIR = os.path.join(os.path.dirname(__file__), "uploads", "jobs")
 
@@ -145,14 +145,7 @@ def process_bulk_job(
     except Exception as exc:
         logger.warning(f"Could not update UserFile to processing: {exc}")
 
-    async def _run_chunk(chunk: list) -> list:
-        sem = asyncio.Semaphore(BULK_CONCURRENCY)
-
-        async def bounded(email: str):
-            async with sem:
-                return await verify_email(email)
-
-        return await asyncio.gather(*[bounded(e) for e in chunk], return_exceptions=True)
+    # Removed isolated _run_chunk because we consolidate into a single asyncio.run
 
     def _is_paused(job_id: str) -> bool:
         """Check if this job has been paused via Redis flag."""
@@ -173,65 +166,82 @@ def process_bulk_job(
         except Exception:
             return False
 
-    try:
-        with open(results_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow([
-                "email", "status", "quality_score",
-                "syntax", "mx", "smtp", "catch_all",
-                "disposable", "role", "spf", "dmarc", "details",
-            ])
+    async def _run_all() -> None:
+        try:
+            with open(results_path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    "email", "status", "quality_score",
+                    "syntax", "mx", "smtp", "catch_all",
+                    "disposable", "role", "spf", "dmarc", "details",
+                ])
 
-            processed = 0
-            for start in range(0, total, BULK_CHUNK_SIZE):
-                # Check for pause: wait until resumed
-                while _is_paused(job_id):
-                    _cache_update(job_id, {"status": "paused", "processed": processed})
-                    import time as _time
-                    _time.sleep(3)
+                processed = 0
+                sem = asyncio.Semaphore(BULK_CONCURRENCY)
+
+                async def bounded(email: str):
+                    async with sem:
+                        return await verify_email(email)
+
+                for start in range(0, total, BULK_CHUNK_SIZE):
+                    # Check for pause: wait until resumed
+                    while _is_paused(job_id):
+                        _cache_update(job_id, {"status": "paused", "processed": processed})
+                        await asyncio.sleep(3)
+                        if _is_cancelled(job_id):
+                            break
+
+                    # Check for cancellation
                     if _is_cancelled(job_id):
-                        break
+                        _cache_update(job_id, {"status": "cancelled", "processed": processed})
+                        logger.info(f"[{job_id}] Job cancelled by user.")
+                        return {"job_id": job_id, "total": total, "status": "cancelled"}
 
-                # Check for cancellation
-                if _is_cancelled(job_id):
-                    _cache_update(job_id, {"status": "cancelled", "processed": processed})
-                    logger.info(f"[{job_id}] Job cancelled by user.")
-                    return {"job_id": job_id, "total": total, "status": "cancelled"}
+                    # Resume status
+                    _cache_update(job_id, {"status": "processing", "processed": processed})
 
-                # Resume status
-                _cache_update(job_id, {"status": "processing", "processed": processed})
+                    chunk = emails[start : start + BULK_CHUNK_SIZE]
+                    results = await asyncio.gather(*[bounded(e) for e in chunk], return_exceptions=True)
 
-                chunk = emails[start : start + BULK_CHUNK_SIZE]
-                results = asyncio.run(_run_chunk(chunk))
+                    db_rows = []
+                    for r in results:
+                        if isinstance(r, Exception):
+                            writer.writerow(["", "ERROR", 0, False, False,
+                                             False, False, False, False, False, False, str(r)])
+                        else:
+                            writer.writerow([
+                                r.get("email", ""),
+                                r.get("status", ""),
+                                r.get("quality_score", 0),
+                                r.get("syntax", False),
+                                r.get("mx", False),
+                                r.get("smtp", False),
+                                r.get("catch_all", False),
+                                r.get("disposable", False),
+                                r.get("role", False),
+                                r.get("spf", False),
+                                r.get("dmarc", False),
+                                r.get("details", ""),
+                            ])
+                            db_rows.append(_build_email_result_obj(r, user_id, file_id))
 
-                db_rows = []
-                for r in results:
-                    if isinstance(r, Exception):
-                        writer.writerow(["", "ERROR", 0, False, False,
-                                         False, False, False, False, False, False, str(r)])
-                    else:
-                        writer.writerow([
-                            r.get("email", ""),
-                            r.get("status", ""),
-                            r.get("quality_score", 0),
-                            r.get("syntax", False),
-                            r.get("mx", False),
-                            r.get("smtp", False),
-                            r.get("catch_all", False),
-                            r.get("disposable", False),
-                            r.get("role", False),
-                            r.get("spf", False),
-                            r.get("dmarc", False),
-                            r.get("details", ""),
-                        ])
-                        db_rows.append(_build_email_result_obj(r, user_id, file_id))
+                    # Persist this chunk to DB (sync flush is okay in background worker)
+                    _flush_to_db(db_rows)
 
-                # Persist this chunk to DB
-                _flush_to_db(db_rows)
+                    processed += len(chunk)
+                    _cache_update(job_id, {"status": "processing", "processed": processed})
+                    logger.info(f"[{job_id}] {processed}/{total} processed")
 
-                processed += len(chunk)
-                _cache_update(job_id, {"status": "processing", "processed": processed})
-                logger.info(f"[{job_id}] {processed}/{total} processed")
+        except Exception as exc:
+            raise exc
+
+    try:
+        # Run the entire processing block in ONE event loop to prevent redis_pool errors
+        # across multiple loop instantiations.
+        loop_result = asyncio.run(_run_all())
+        if loop_result and loop_result.get("status") == "cancelled":
+            return loop_result
+
 
         # ── Job complete ──────────────────────────────────────────────────────
         _cache_update(job_id, {"status": "completed", "processed": total})
