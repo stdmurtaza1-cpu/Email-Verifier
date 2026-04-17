@@ -649,7 +649,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
             break
             
     # Domain intelligence check
-    if domain in DOMAIN_STATS:
+    if domain in DOMAIN_STATS and domain not in FREE_EMAIL_DOMAINS:
         stats = DOMAIN_STATS[domain]
         if stats.get('catch_all_count', 0) >= 2:
             result['catch_all'] = True
@@ -662,7 +662,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
         spf_exists = cached['spf']
         dmarc_exists = cached['dmarc']
         has_mx = cached['has_mx']
-        if cached.get('catch_all'):
+        if cached.get('catch_all') and domain not in FREE_EMAIL_DOMAINS:
             result['catch_all'] = True
             
         result["spf"] = spf_exists
