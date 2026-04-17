@@ -796,19 +796,15 @@ async def verify_email(email: str) -> Dict[str, Any]:
         return result
     else:
         # Fallback for TIMEOUT, CONNECTION_REFUSED, UNVERIFIABLE, or UNKNOWN
-        # When a server blocks SMTP probing but has valid MX records, it still
-        # accepts email — treat as CATCH_ALL for accuracy.
-        logger.debug(f"SMTP unreliable due to {smtp_status}. Mapping result based on DNS evidence.")
+        logger.debug(f"SMTP unreliable due to {smtp_status}. Mapping result based on actual state.")
         result["verification_method"] = "heuristic"
         
         if has_mx:
-            # Domain has mail server configured — server is blocking probing (common)
-            # Real accepting servers do this. Mark as CATCH_ALL, not unverified.
-            result["status"] = "CATCH_ALL"
-            result["smtp"] = True
-            result["catch_all"] = True
-            result["details"] = f"Mail server exists but blocks SMTP probing ({smtp_status}). Treated as catch-all domain."
-            logger.debug(f"Mapped {smtp_status} → CATCH_ALL for {email} (MX present, server blocks probing)")
+            result["status"] = "UNVERIFIED"
+            result["smtp"] = False  # DO NOT fake SMTP success
+            result["catch_all"] = False
+            result["details"] = f"Mail server exists but SMTP connection failed: {smtp_status}. Reason: {smtp_details}"
+            logger.debug(f"SMTP Failed for {email}: {smtp_status}. Leaving as UNVERIFIED.")
         else:
             result["status"] = "LIKELY_INVALID"
             result["details"] = f"SMTP unverified ({smtp_status}) and no reliable mail server found."
