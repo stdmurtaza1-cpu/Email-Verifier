@@ -1383,18 +1383,26 @@ async function loadPartnerDashboard() {
                         tdEmail.textContent = u.email;
 
                         const tdLimit = document.createElement('td');
-                        tdLimit.textContent = u.daily_limit;
+                        tdLimit.innerHTML = `<input type="number" id="update_limit_${u.id}" class="input-modern" value="${u.daily_limit}" style="width:100px; padding:0.2rem; background:rgba(0,0,0,0.5); border:1px solid var(--border-color); color:white;" min="1">`;
 
                         const tdUsed = document.createElement('td');
                         tdUsed.textContent = u.used_today;
 
                         const tdAction = document.createElement('td');
-                        const btn = document.createElement('button');
-                        btn.className = 'btn btn-outline';
-                        btn.style.cssText = 'padding: 0.2rem 0.6rem; font-size: 0.8rem; border-color: var(--danger); color: var(--danger);';
-                        btn.textContent = 'Revoke';
-                        btn.addEventListener('click', () => revokePartner(u.id));
-                        tdAction.appendChild(btn);
+                        
+                        const btnUpdate = document.createElement('button');
+                        btnUpdate.className = 'btn btn-primary';
+                        btnUpdate.style.cssText = 'padding: 0.2rem 0.6rem; font-size: 0.8rem; margin-right: 0.5rem;';
+                        btnUpdate.textContent = 'Update';
+                        btnUpdate.addEventListener('click', () => updatePartnerLimit(u.id));
+                        tdAction.appendChild(btnUpdate);
+
+                        const btnRevoke = document.createElement('button');
+                        btnRevoke.className = 'btn btn-outline';
+                        btnRevoke.style.cssText = 'padding: 0.2rem 0.6rem; font-size: 0.8rem; border-color: var(--danger); color: var(--danger);';
+                        btnRevoke.textContent = 'Revoke';
+                        btnRevoke.addEventListener('click', () => revokePartner(u.id));
+                        tdAction.appendChild(btnRevoke);
 
                         tr.appendChild(tdEmail);
                         tr.appendChild(tdLimit);
@@ -1432,6 +1440,36 @@ window.approvePartner = async function(userId, isApprove) {
             body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error("Action failed");
+        loadPartnerDashboard();
+    } catch (err) {
+        alert(err.message);
+    }
+};
+
+window.updatePartnerLimit = async function(userId) {
+    const limitInput = document.getElementById(`update_limit_${userId}`);
+    const limit = limitInput ? parseInt(limitInput.value) : null;
+    
+    if (!limit || isNaN(limit)) {
+        alert("Invalid daily limit");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/partner/update-limit', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ user_id: userId, daily_limit: limit })
+        });
+        if (!res.ok) throw new Error("Update limit failed");
+        if (typeof showToast === "function") {
+            showToast("Limit updated successfully!");
+        } else {
+            alert("Limit updated successfully!");
+        }
         loadPartnerDashboard();
     } catch (err) {
         alert(err.message);
@@ -1490,7 +1528,7 @@ window.linkPartnerLicense = async function() {
 }
 
 // Auto init dashboard if user token
-refreshUserState();
+initDash();
 
 window.generateNewApiKey = async function() {
     if(!confirm("Are you sure? Your old API key will immediately stop working.")) return;
