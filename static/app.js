@@ -919,7 +919,7 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const BULK_LARGE_THRESHOLD = 2000; // above this use background job (supports up to 1M)
+const BULK_LARGE_THRESHOLD = 9999999; // Force all bulk uploads to use one-by-one frontend processing
 
 async function startBulkVerify() {
   console.log('=== BULK VERIFY STARTED ===');

@@ -648,6 +648,8 @@ async def verify_email(email: str) -> Dict[str, Any]:
             result["role"] = True
             break
             
+    FREE_EMAIL_DOMAINS = {'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com'}
+
     # Domain intelligence check
     if domain in DOMAIN_STATS and domain not in FREE_EMAIL_DOMAINS:
         stats = DOMAIN_STATS[domain]
