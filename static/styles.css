@@ -236,10 +236,6 @@ body.light-theme .theme-toggle-btn:hover {
     background: rgba(0,0,0,0.05);
 }
 
-/* Wordmark logo: white text becomes dark in light mode */
-body.light-theme .veridrax-wordmark {
-    filter: brightness(0);
-}
 
 /* Footer link hover — works in both themes */
 .footer-link:hover {
