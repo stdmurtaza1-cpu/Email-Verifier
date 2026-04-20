@@ -16,7 +16,7 @@
         <div class="nav-container">
             <div class="logo" style="display: flex; align-items: center; gap: 0.6rem; text-decoration: none;">
                 <img src="/veridrax-icon.png" alt="" style="height: 36px; width: auto;">
-                <img src="/veridrax-wordmark.png" alt="Veridrax" style="height: 22px; width: auto;">
+                <img src="/veridrax-wordmark.png" alt="Veridrax" class="veridrax-wordmark" style="height: 22px; width: auto;">
             </div>
             
             <div class="nav-links">
@@ -715,8 +715,8 @@
                         <img src="/veridrax-icon.png" alt="Veridrax" style="width: 90px; border-radius: 12px; border: 3px solid var(--primary);">
                         <h3>Veridrax</h3>
                         <p>Professional Email Verification</p>
-                        <a href="mailto:support@veridrax.com" class="btn btn-outline w-100 mt-2" style="border-color: var(--primary); color: white;">📧 support@veridrax.com</a>
-                        <a href="tel:+923110403991" class="btn btn-outline w-100 mt-2" style="border-color: var(--primary); color: white;">📞 +92 3110403991</a>
+                        <a href="mailto:support@veridrax.com" class="btn btn-outline w-100 mt-2" style="border-color: var(--primary);">📧 support@veridrax.com</a>
+                        <a href="tel:+923110403991" class="btn btn-outline w-100 mt-2" style="border-color: var(--primary);">📞 +92 3110403991</a>
                         <a href="https://wa.me/923110403991?text=Hi,%20I%20want%20to%20upgrade%20my%20plan" target="_blank" class="btn btn-outline mt-2 w-100" style="border-color: #25D366; color: #25D366;">💬 WhatsApp: Click to chat</a>
                     </div>
 
@@ -858,7 +858,7 @@
                                 </div>
                             </div>
                             <div class="glass p-3 rounded text-center" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                <button class="btn btn-outline w-100" style="border-color: var(--primary); color: white;" onclick="navigator.clipboard.writeText(document.getElementById('dash-overview-api').value)">Copy API Key</button>
+                                <button class="btn btn-outline w-100" style="border-color: var(--primary);" onclick="navigator.clipboard.writeText(document.getElementById('dash-overview-api').value)">Copy API Key</button>
                             </div>
                         </div>
                         
@@ -1139,7 +1139,7 @@ curl -X POST "http://localhost:8000/api/verify" \
             <div style="flex: 2; min-width: 300px;">
                 <div class="logo mb-2" style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;">
                     <img src="/veridrax-icon.png" alt="" style="height: 32px; width: auto;">
-                    <img src="/veridrax-wordmark.png" alt="Veridrax" style="height: 20px; width: auto;">
+                    <img src="/veridrax-wordmark.png" alt="Veridrax" class="veridrax-wordmark" style="height: 20px; width: auto;">
                 </div>
                 <p class="text-muted" style="font-size: 0.95rem; margin-bottom: 1rem; font-weight: 500;">The premier infrastructure for 98% accurate, real-time distributed SMTP verification.</p>
                 <p class="text-muted" style="font-size: 0.85rem; line-height: 1.7; max-width: 600px;">
@@ -1148,12 +1148,12 @@ curl -X POST "http://localhost:8000/api/verify" \
             </div>
             
             <div style="flex: 1; min-width: 200px;">
-                <h4 style="color: white; margin-bottom: 1.5rem;">Quick Links</h4>
+                <h4 class="footer-heading" style="color: var(--text-main); margin-bottom: 1.5rem;">Quick Links</h4>
                 <div style="display: flex; flex-direction: column; gap: 0.8rem;">
-                    <a href="#" onclick="showPage('home')" style="color: var(--text-muted); font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--text-muted)'">Home Architecture</a>
-                    <a href="#" onclick="showPage('pricing')" style="color: var(--text-muted); font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--text-muted)'">API & Engine Pricing</a>
-                    <a href="#" onclick="showPage('contact')" style="color: var(--text-muted); font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--text-muted)'">Direct Communication</a>
-                    <a href="#" onclick="showPage('privacy')" style="color: var(--text-muted); font-size: 0.9rem; transition: color 0.3s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--text-muted)'">Privacy Policy (GDPR)</a>
+                    <a href="#" onclick="showPage('home')" class="footer-link" style="color: var(--text-muted); font-size: 0.9rem; transition: color 0.3s;">Home Architecture</a>
+                    <a href="#" onclick="showPage('pricing')" class="footer-link" style="color: var(--text-muted); font-size: 0.9rem; transition: color 0.3s;">API & Engine Pricing</a>
+                    <a href="#" onclick="showPage('contact')" class="footer-link" style="color: var(--text-muted); font-size: 0.9rem; transition: color 0.3s;">Direct Communication</a>
+                    <a href="#" onclick="showPage('privacy')" class="footer-link" style="color: var(--text-muted); font-size: 0.9rem; transition: color 0.3s;">Privacy Policy (GDPR)</a>
                 </div>
             </div>
 

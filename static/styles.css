@@ -236,6 +236,22 @@ body.light-theme .theme-toggle-btn:hover {
     background: rgba(0,0,0,0.05);
 }
 
+/* Wordmark logo: white text becomes dark in light mode */
+body.light-theme .veridrax-wordmark {
+    filter: brightness(0);
+}
+
+/* Footer link hover — works in both themes */
+.footer-link:hover {
+    color: var(--text-main) !important;
+}
+
+/* Fix hardcoded white inline styles in light mode */
+body.light-theme .btn-outline[style*="color: white"],
+body.light-theme .btn-outline[style*="color:white"] {
+    color: var(--text-main) !important;
+}
+
 /* Credits Badge */
 .credits-badge {
     background: rgba(0, 242, 96, 0.12);
