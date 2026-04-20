@@ -3,7 +3,7 @@ import random
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-SMTP_EMAIL = "std.murtaza1@gmail.com"
+SMTP_EMAIL = "support@veridrax.com"
 SMTP_APP_PASSWORD = "sceh mopw mvje wmhc"
 
 # User se email input lo
@@ -14,7 +14,7 @@ OTP = random.randint(100000, 999999)
 
 print(f"Generated OTP: {OTP}")  # terminal mein bhi dikhe
 
-subject = "VerifyNinja — Your OTP Code"
+subject = "Veridrax — Your OTP Code"
 html_content = f"""
 <div style="font-family: Arial, sans-serif; 
             max-width: 500px; margin: auto; 
@@ -23,7 +23,7 @@ html_content = f"""
             border-radius: 10px;">
             
     <h2 style="color: #333; text-align: center;">
-        VerifyNinja
+        Veridrax
     </h2>
     
     <p style="color: #555; text-align: center;">
@@ -57,7 +57,7 @@ html_content = f"""
     <p style="color: #ccc; 
               text-align: center; 
               font-size: 11px;">
-        VerifyNinja — Professional Email Validation
+        Veridrax — Professional Email Validation
     </p>
 </div>
 """

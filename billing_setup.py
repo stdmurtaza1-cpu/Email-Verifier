@@ -143,7 +143,7 @@ success_code = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Successful - Email Verifier Ninja</title>
+    <title>Payment Successful - Veridrax</title>
     <link rel="stylesheet" href="styles.css">
     <style>
         body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0b0c10; color: white; text-align: center; }

@@ -1,4 +1,4 @@
-# Email Verifier Ninja
+# Veridrax
 
 ## Overview
 A high-performance Email Verification SaaS platform. Users can verify email addresses individually or in bulk, checking for syntax validity, disposable domains, MX records, and performing SMTP handshakes.

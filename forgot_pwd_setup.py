@@ -43,7 +43,7 @@ async def forgot_password(request: Request, data: ForgotPasswordDTO, db: Session
                 message = Mail(
                     from_email=FROM_EMAIL,
                     to_emails=user.email,
-                    subject='Password Reset - Email Verifier Ninja',
+                    subject='Password Reset - Veridrax',
                     html_content=html_content)
                 sg = SendGridAPIClient(SENDGRID_API_KEY)
                 sg.send(message)

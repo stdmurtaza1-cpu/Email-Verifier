@@ -129,7 +129,7 @@ async def lifespan(app: FastAPI):
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["10000/minute"])
 
-app = FastAPI(title="Email Verifier Ninja", lifespan=lifespan)
+app = FastAPI(title="Veridrax", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

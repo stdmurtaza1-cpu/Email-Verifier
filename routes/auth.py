@@ -43,9 +43,9 @@ async def _otp_delete(namespace: str, email: str):
     r = get_redis()
     await r.delete(f"otp:{namespace}:{email}")
 
-SMTP_EMAIL = os.getenv("SMTP_EMAIL", "std.murtaza1@gmail.com").strip('"\'')
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "support@veridrax.com").strip('"\'')
 SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD", "sceh mopw mvje wmhc").strip('"\'')
-FROM_EMAIL = os.getenv("FROM_EMAIL", "std.murtaza1@gmail.com").strip('"\'')
+FROM_EMAIL = os.getenv("FROM_EMAIL", "support@veridrax.com").strip('"\'')
 
 def send_email_smtp(to_email: str, subject: str, html_content: str):
     if not SMTP_EMAIL or not SMTP_APP_PASSWORD:
@@ -130,7 +130,7 @@ async def register(request: Request, user_data: UserAuthDTO, background_tasks: B
     
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 30px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #333; text-align: center;">VerifyNinja</h2>
+        <h2 style="color: #333; text-align: center;">Veridrax</h2>
         <p style="color: #555; text-align: center;">Your verification code is:</p>
         <div style="text-align: center; margin: 30px 0; padding: 20px; background: #f5f5f5; border-radius: 8px;">
             <span style="color: #4A90E2; font-size: 48px; font-weight: bold; letter-spacing: 8px;">
@@ -139,12 +139,12 @@ async def register(request: Request, user_data: UserAuthDTO, background_tasks: B
         </div>
         <p style="color: #999; text-align: center; font-size: 13px;">This code expires in 10 minutes. Do not share this code with anyone.</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #ccc; text-align: center; font-size: 11px;">VerifyNinja — Professional Email Validation</p>
+        <p style="color: #ccc; text-align: center; font-size: 11px;">Veridrax — Professional Email Validation</p>
     </div>
     """
     
     if True: # Always attempt to send email if not in pure dev mode
-        background_tasks.add_task(send_email_smtp, user_data.email, 'VerifyNinja — Your OTP Code', html_content)
+        background_tasks.add_task(send_email_smtp, user_data.email, 'Veridrax — Your OTP Code', html_content)
         
     return {"message": "OTP sent to your email", "email": user_data.email}
 
@@ -306,7 +306,7 @@ async def forgot_password(request: Request, data: ForgotPasswordDTO, background_
         
         html_content = f"""
         <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 30px; border: 1px solid #eee; border-radius: 10px;">
-            <h2 style="color: #333; text-align: center;">VerifyNinja Reset</h2>
+            <h2 style="color: #333; text-align: center;">Veridrax Reset</h2>
             <p style="color: #555; text-align: center;">We received a request to reset your password. Here is your verification code:</p>
             <div style="text-align: center; margin: 30px 0; padding: 20px; background: #f5f5f5; border-radius: 8px;">
                 <span style="color: #4A90E2; font-size: 48px; font-weight: bold; letter-spacing: 8px;">
@@ -315,12 +315,12 @@ async def forgot_password(request: Request, data: ForgotPasswordDTO, background_
             </div>
             <p style="color: #999; text-align: center; font-size: 13px;">This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-            <p style="color: #ccc; text-align: center; font-size: 11px;">VerifyNinja — Professional Email Validation</p>
+            <p style="color: #ccc; text-align: center; font-size: 11px;">Veridrax — Professional Email Validation</p>
         </div>
         """
         
         if True:
-            background_tasks.add_task(send_email_smtp, user.email, 'VerifyNinja — Password Reset OTP', html_content)
+            background_tasks.add_task(send_email_smtp, user.email, 'Veridrax — Password Reset OTP', html_content)
 
     return {"message": "If this email is registered, an OTP has been sent."}
 
