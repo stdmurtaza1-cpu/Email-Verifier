@@ -122,7 +122,10 @@ class PageContent(Base):
     html_content = Column(String, nullable=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
-Base.metadata.create_all(bind=engine, checkfirst=True)
+try:
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+except Exception:
+    pass
 
 def get_db():
     db = SessionLocal()
