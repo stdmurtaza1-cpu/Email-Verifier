@@ -1,0 +1,36 @@
+Goal Description
+Address three main issues reported by the user:
+
+Fake verification bug: Free domains (Gmail, Yahoo, AOL) are sometimes incorrectly marked as Catch-All because they occasionally return internal 250s for invalid emails during rate limiting or grey-listing scenarios. We need to explicitly exclude FREE domains from being marked as Catch-All in the SMTP engine natively.
+Partner Tracking lack of visibility: Partners want to know the lifetime total verified emails for the users they shared keys with, rather than just the "used today" amount.
+Admin Panel lack of visibility: System Administrators currently cannot see which users are using shared keys vs their own. The admin panel must reflect the partner relationships.
+Proposed Changes
+Core Verification Engine
+[MODIFY] core/verifier.py
+Update _smtp_verify_email to never emit a fake-email 250 test for explicitly known FREE domains (gmail.com, yahoo.com, aol.com). If the domain is in FREE_EMAIL_DOMAINS, automatically skip the fc = 250 catch-all detection sequence and assume 0, eliminating any potential false positives.
+Database Models
+[MODIFY] database.py
+Add partner_credits_used_lifetime = Column(Integer, default=0) to the User model.
+Include a safe ALTER TABLE execution script at the bottom of the file (within a try/except block) to dynamically insert the column into the existing deployed database without dropping any data or requiring manual alembic migrations.
+API & Endpoints
+[MODIFY] routes/api.py
+Update check_and_deduct_credits to continuously increment child.partner_credits_used_lifetime alongside the child.partner_credits_used_today whenever a linked session verifies an email.
+[MODIFY] routes/partner.py
+Update the /users endpoint inside routes/partner.py to also return used_lifetime: getattr(u, 'partner_credits_used_lifetime', 0) data for approved users.
+[MODIFY] routes/admin.py
+Update /api/admin/users to dynamically look up and fetch the partner's original email using a mapping of u.linked_api_key. Add partner_email and partner_status to the JSON response list for each user.
+Frontend Dashboards
+[MODIFY] static/app.js & static/index.html
+Update loadPartnerDashboard() script to inject the used_lifetime variable into the "Approved Users" table.
+Modify the index.html table header in "Approved Users" to include a new Lifetime Usage column natively.
+[MODIFY] static/admin.js & static/admin.html
+Modify the users table headers in static/admin.html to accommodate a new "Linked Partner" column.
+Update renderUsersTable(usersArray) in static/admin.js to render the newly populated partner_email from the /api/admin/users response. Include a badge to identify if they are "Shared" or "Independent".
+Verification Plan
+Automated/Manual Testing
+Manually run verification scripts dynamically inside terminal using python test_gmail_verify.py to prove free catch-all prevention works.
+I will execute testing requests directly referencing the deployed app to see the database schema update and whether the endpoints accurately render the partner links natively.
+
+
+"proceed the plan and is project ka color green aur black kr do light dark wala waise hi rahny dyna"
+aur na jo share credits use kr raha hy wo use kr to kr raha hy lakin osky credit nai cut ho rahy hy 

@@ -94,8 +94,12 @@ async def toggle_user(data: ToggleUserDTO, db: Session = Depends(get_db), curren
 @router.get("/users")
 async def get_all_users(db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):
     users = db.query(User).all()
+    # Build a map from hashed api_key -> email for partner lookups
+    api_key_to_email = {u.api_key: u.email for u in users if u.api_key}
     user_list = []
     for u in users:
+        linked_key = getattr(u, 'linked_api_key', None)
+        partner_email = api_key_to_email.get(linked_key) if linked_key else None
         user_list.append({
             "id": u.id,
             "email": u.email,
@@ -105,7 +109,9 @@ async def get_all_users(db: Session = Depends(get_db), current_admin: dict = Dep
             "is_active": getattr(u, "is_active", True),
             "api_key": getattr(u, "api_key", None),
             "total_verifications": getattr(u, 'total_verifications', 0),
-            "monthly_verifications": getattr(u, 'monthly_verifications', 0)
+            "monthly_verifications": getattr(u, 'monthly_verifications', 0),
+            "partner_email": partner_email,
+            "partner_status": getattr(u, 'partner_status', None)
         })
     return {"users": user_list}
 

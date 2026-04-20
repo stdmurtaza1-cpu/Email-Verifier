@@ -222,6 +222,9 @@ function renderUsersTable(usersArray) {
         tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
         const isAct = u.is_active !== false;
         
+        const partnerCell = u.partner_email
+            ? `<span style="display:inline-block; background:rgba(0,242,96,0.12); border:1px solid var(--primary); color:var(--primary); border-radius:6px; padding:0.2rem 0.5rem; font-size:0.75rem; font-weight:600;">SHARED</span> <span style="font-size:0.8rem; color:var(--text-muted);">${esc(u.partner_email)}</span>`
+            : `<span style="display:inline-block; background:rgba(255,255,255,0.06); border:1px solid var(--border-color); color:var(--text-muted); border-radius:6px; padding:0.2rem 0.5rem; font-size:0.75rem;">Independent</span>`;
         tr.innerHTML = `
             <td style="padding: 1rem; font-weight: 600;">${esc(u.email)}</td>
             <td style="padding: 1rem;"><span class="badge ${esc(u.plan)}" style="text-transform:uppercase;">${esc(u.plan)}</span></td>
@@ -229,6 +232,7 @@ function renderUsersTable(usersArray) {
             <td style="padding: 1rem; color: var(--text-muted);">${u.joined_date ? esc(u.joined_date.split('T')[0]) : 'N/A'}</td>
             <td style="padding: 1rem; font-weight: 500; color: var(--success);">${(u.total_verifications || 0).toLocaleString()}</td>
             <td style="padding: 1rem; font-weight: 500; color: var(--warning);">${(u.monthly_verifications || 0).toLocaleString()}</td>
+            <td style="padding: 1rem;">${partnerCell}</td>
             <td style="padding: 1rem;">
                 <span style="color: ${isAct ? 'var(--success)' : 'var(--danger)'}; font-weight: bold;">
                     ${isAct ? 'Active' : 'Suspended'}

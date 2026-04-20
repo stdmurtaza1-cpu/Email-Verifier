@@ -1373,7 +1373,7 @@ async function loadPartnerDashboard() {
             const tbodyA = document.getElementById('partner-users-body');
             if (tbodyA) {
                 if (approved.length === 0) {
-                    tbodyA.innerHTML = '<tr><td colspan="4" class="text-muted text-center p-3">No active linked users.</td></tr>';
+                    tbodyA.innerHTML = '<tr><td colspan="5" class="text-muted text-center p-3">No active linked users.</td></tr>';
                 } else {
                     tbodyA.innerHTML = '';
                     approved.forEach(u => {
@@ -1387,6 +1387,10 @@ async function loadPartnerDashboard() {
 
                         const tdUsed = document.createElement('td');
                         tdUsed.textContent = u.used_today;
+
+                        const tdLifetime = document.createElement('td');
+                        tdLifetime.style.cssText = 'color: var(--primary); font-weight: 600;';
+                        tdLifetime.textContent = (u.used_lifetime || 0).toLocaleString();
 
                         const tdAction = document.createElement('td');
                         
@@ -1407,6 +1411,7 @@ async function loadPartnerDashboard() {
                         tr.appendChild(tdEmail);
                         tr.appendChild(tdLimit);
                         tr.appendChild(tdUsed);
+                        tr.appendChild(tdLifetime);
                         tr.appendChild(tdAction);
                         tbodyA.appendChild(tr);
                     });

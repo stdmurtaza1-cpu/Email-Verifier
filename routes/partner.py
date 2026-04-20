@@ -59,7 +59,8 @@ async def get_partner_users(current_user: User = Depends(get_current_user), db: 
             "id": u.id,
             "email": u.email,
             "daily_limit": u.partner_daily_limit,
-            "used_today": used_today
+            "used_today": used_today,
+            "used_lifetime": getattr(u, 'partner_credits_used_lifetime', 0) or 0
         })
     return res
 

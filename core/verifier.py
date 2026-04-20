@@ -269,6 +269,12 @@ async def _smtp_verify_email(smtp, domain: str, email: str) -> Tuple[int, str, i
             smtp.mail(MAIL_FROM)
             c, m = smtp.rcpt(email)
             if c == 250:
+                # Skip catch-all probe for known free/consumer domains.
+                # These providers (Gmail, Yahoo, AOL, etc.) sometimes return 250
+                # for invalid addresses during rate-limiting / greylisting events,
+                # which would produce a false CATCH_ALL result.
+                if domain.lower() in FREE_EMAIL_DOMAINS:
+                    return c, m, 0
                 fake = f"test{random.randint(10000, 99999)}@{domain}"
                 try:
                     smtp.rset()

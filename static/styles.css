@@ -238,7 +238,7 @@ body.light-theme .theme-toggle-btn:hover {
 
 /* Credits Badge */
 .credits-badge {
-    background: rgba(123, 47, 190, 0.2);
+    background: rgba(0, 242, 96, 0.12);
     border: 1px solid var(--primary);
     padding: 0.5rem 1rem;
     border-radius: 20px;
@@ -263,8 +263,8 @@ body.light-theme .theme-toggle-btn:hover {
     align-items: center;
 }
 .btn-primary {
-    background: linear-gradient(90deg, var(--primary) 0%, #9b4dca 100%);
-    color: white;
+    background: linear-gradient(90deg, #00b341 0%, #00f260 100%);
+    color: #000;
 }
 .btn-primary:hover {
     box-shadow: 0 0 20px var(--primary-glow);
@@ -329,7 +329,7 @@ body.light-theme .theme-toggle-btn:hover {
     align-items: center;
     justify-content: center;
     text-align: center;
-    background: radial-gradient(circle at center, rgba(123, 47, 190, 0.15) 0%, rgba(10, 10, 15, 1) 70%);
+    background: radial-gradient(circle at center, rgba(0, 242, 96, 0.08) 0%, rgba(10, 10, 15, 1) 70%);
 }
 .hero-content { max-width: 800px; padding: 0 2rem; animation: slideUp 0.8s ease; }
 @keyframes slideUp { from {opacity:0; transform:translateY(30px);} to {opacity:1; transform:translateY(0);} }
@@ -360,7 +360,7 @@ body.light-theme .theme-toggle-btn:hover {
    BADGES (Matches 10 Status Types)
 ========================================== */
 .badge-accepted { color: var(--success); border-color: rgba(0,230,118,0.3); }
-.badge-catchall { color: var(--primary); border-color: rgba(123,47,190,0.3); }
+.badge-catchall { color: var(--primary); border-color: rgba(0,242,96,0.3); }
 .badge-rejected { color: var(--danger); border-color: rgba(255,51,102,0.3); }
 .badge-error { color: #ff9800; border-color: rgba(255,152,0,0.3); }
 .badge-spamblock { color: var(--warning); border-color: rgba(255,179,0,0.3); }
@@ -370,7 +370,7 @@ body.light-theme .theme-toggle-btn:hover {
 .badge-nomx { color: darkred; border-color: rgba(139,0,0,0.3); }
 .badge-limited { color: teal; border-color: rgba(0,128,128,0.3); }
 .badge-active { background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid #00d4ff; padding: 0.5rem 1rem; border-radius: 20px;}
-.badge-pro { background: rgba(123, 47, 190, 0.2); color: #7b2fbe; border: 1px solid #7b2fbe; padding: 0.3rem 0.6rem; border-radius: 12px;}
+.badge-pro { background: rgba(0, 242, 96, 0.15); color: #00c853; border: 1px solid #00c853; padding: 0.3rem 0.6rem; border-radius: 12px;}
 
 /* ==========================================
    REVIEWS & TESTIMONIALS
@@ -474,7 +474,7 @@ body.light-theme .theme-toggle-btn:hover {
 .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2rem; align-items: stretch; }
 .price-card { padding: 3rem 2rem; border-radius: 20px; display: flex; flex-direction: column; position: relative; transition: transform 0.3s ease; }
 .price-card:hover { transform: translateY(-10px); }
-.price-card.popular { border-color: var(--primary); box-shadow: 0 0 30px rgba(123,47,190,0.2); transform: scale(1.05); }
+.price-card.popular { border-color: var(--primary); box-shadow: 0 0 30px rgba(0,242,96,0.2); transform: scale(1.05); }
 .price-card.popular:hover { transform: scale(1.05) translateY(-10px); }
 .popular-badge { position: absolute; top: 0; left: 50%; transform: translate(-50%, -50%); background: var(--primary); color: white; padding: 0.4rem 1.2rem; border-radius: 20px; font-weight: 700; font-size: 0.8rem; letter-spacing: 1px; }
 .price { font-size: 3rem; font-weight: 800; font-family: 'Poppins'; margin: 1.5rem 0; }
@@ -491,7 +491,7 @@ body.light-theme .theme-toggle-btn:hover {
 .dash-nav { padding: 2rem 1rem; display: flex; flex-direction: column; gap: 0.5rem; height: 100%; }
 .dash-nav-btn { background: transparent; border: none; padding: 1rem; text-align: left; color: var(--text-muted); font-size: 1rem; font-weight: 500; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
 .dash-nav-btn:hover { background: rgba(255,255,255,0.05); color: white; }
-.dash-nav-btn.active { background: rgba(123, 47, 190, 0.2); color: var(--primary); }
+.dash-nav-btn.active { background: rgba(0, 242, 96, 0.12); color: var(--primary); }
 
 .dash-content { flex-grow: 1; overflow-y: auto; }
 .dash-panel { display: none; animation: fadeIn 0.4s ease; }

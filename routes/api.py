@@ -47,7 +47,12 @@ def check_and_deduct_credits(current_user: User, amount: int, db: Session = None
         else:
             current_user_locked = current_user
         today = date.today()
-        if child.partner_limit_reset_date != today:
+        # Safely compare: partner_limit_reset_date is a DateTime column (returns datetime),
+        # while today is a date — always extract .date() before comparing to avoid
+        # the datetime != date bug that caused the daily counter to always reset.
+        reset_date = child.partner_limit_reset_date
+        reset_day = reset_date.date() if hasattr(reset_date, 'date') else reset_date
+        if reset_day != today:
             child.partner_credits_used_today = 0
             child.partner_limit_reset_date = today
 
@@ -59,6 +64,7 @@ def check_and_deduct_credits(current_user: User, amount: int, db: Session = None
             raise HTTPException(status_code=403, detail="Partner has insufficient credits.")
 
         child.partner_credits_used_today += amount
+        child.partner_credits_used_lifetime = (child.partner_credits_used_lifetime or 0) + amount
         current_user_locked.credits -= amount
 
         track_user_analytics(child, amount)

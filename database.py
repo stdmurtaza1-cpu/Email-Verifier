@@ -44,6 +44,7 @@ class User(Base):
     partner_status = Column(String, nullable=True)  # 'pending' or 'approved'
     partner_daily_limit = Column(Integer, nullable=True) # e.g. 500
     partner_credits_used_today = Column(Integer, default=0)
+    partner_credits_used_lifetime = Column(Integer, default=0)
     partner_limit_reset_date = Column(DateTime, nullable=True)
     
     # User Verification Analytics Trackers
@@ -124,6 +125,25 @@ class PageContent(Base):
 
 try:
     Base.metadata.create_all(bind=engine, checkfirst=True)
+except Exception:
+    pass
+
+# Safe migration: add new columns to existing databases without alembic
+def _run_safe_migrations():
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS partner_credits_used_lifetime INTEGER DEFAULT 0",
+    ]
+    with engine.connect() as conn:
+        for stmt in migrations:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
+try:
+    _run_safe_migrations()
 except Exception:
     pass
 
