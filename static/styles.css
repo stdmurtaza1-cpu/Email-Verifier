@@ -17,18 +17,18 @@
    LIGHT THEME
 ========================================== */
 body.light-theme {
-    --bg-dark: #f0f4f8;
-    --nav-bg: rgba(255, 255, 255, 0.92);
-    --card-bg: rgba(255, 255, 255, 0.7);
+    --bg-dark: #ffffff;
+    --nav-bg: rgba(255, 255, 255, 0.95);
+    --card-bg: #ffffff;
     --primary: #00b341;
     --primary-glow: rgba(0, 179, 65, 0.4);
     --secondary: #00a85a;
     --danger: #e01b47;
     --success: #00b341;
     --warning: #d97706;
-    --text-main: #1a1a2e;
-    --text-muted: #52526a;
-    --border-color: rgba(0, 0, 0, 0.1);
+    --text-main: #111111;
+    --text-muted: #555555;
+    --border-color: rgba(0, 179, 65, 0.2);
 }
 body.light-theme {
     background-color: var(--bg-dark);

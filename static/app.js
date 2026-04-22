@@ -8,33 +8,13 @@ window._bulkIsPaused = false;
 // ==========================================
 // THEME TOGGLE
 // ==========================================
-function toggleTheme() {
-    const body = document.body;
-    const btn = document.getElementById('theme-toggle');
-    if (body.classList.toggle('light-theme')) {
-        if (btn) btn.textContent = '☀️';
-        localStorage.setItem('ninja_theme', 'light');
-        if (mockChartInstance) {
-            mockChartInstance.options.plugins.legend.labels.color = '#1a1a2e';
-            mockChartInstance.update();
-        }
-    } else {
-        if (btn) btn.textContent = '🌙';
-        localStorage.setItem('ninja_theme', 'dark');
-        if (mockChartInstance) {
-            mockChartInstance.options.plugins.legend.labels.color = '#f8f9fa';
-            mockChartInstance.update();
-        }
-    }
-}
-
 // Apply saved theme on load
 (function() {
     const saved = localStorage.getItem('ninja_theme');
     if (saved === 'light') {
         document.body.classList.add('light-theme');
         const btn = document.getElementById('theme-toggle');
-        if (btn) btn.textContent = '☀️';
+        if (btn) btn.textContent = '️';
     }
 })();
 
@@ -590,7 +570,7 @@ if(freeVerifyBtn) {
 
             let blockNote = '';
             if (data.status === 'SPAM BLOCK') {
-                blockNote = `<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255, 179, 0, 0.1); border-left: 3px solid var(--warning); font-size: 0.8rem; color: var(--warning);">⚠️ Our server IP is blocked by this mail provider. The email address may actually be valid. Consider this email as unverified rather than invalid.</div>`;
+                blockNote = `<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255, 179, 0, 0.1); border-left: 3px solid var(--warning); font-size: 0.8rem; color: var(--warning);">️ Our server IP is blocked by this mail provider. The email address may actually be valid. Consider this email as unverified rather than invalid.</div>`;
             }
 
             resBox.innerHTML = `
@@ -655,7 +635,7 @@ if(authSingleBtn) {
 
             let blockNote = '';
             if (data.status === 'SPAM BLOCK') {
-                blockNote = `<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255, 179, 0, 0.1); border-left: 3px solid var(--warning); font-size: 0.8rem; color: var(--warning);">⚠️ Our server IP is blocked by this mail provider. The email address may actually be valid. Consider this email as unverified rather than invalid.</div>`;
+                blockNote = `<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255, 179, 0, 0.1); border-left: 3px solid var(--warning); font-size: 0.8rem; color: var(--warning);">️ Our server IP is blocked by this mail provider. The email address may actually be valid. Consider this email as unverified rather than invalid.</div>`;
             }
 
             resBox.innerHTML = `
@@ -718,7 +698,7 @@ function initChart() {
     mockChartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Accepted', 'Catch-All', 'Rejected', 'Spam Block', 'Invalid', 'Greylisted', 'Disposable'],
+            labels: ['✅ Accepted', '🔄 Catch-All', '❌ Rejected', '🚫 Spam Block', '⚠️ Invalid', '⏳ Greylisted', '🗑️ Disposable'],
             datasets: [{
                 data: [0, 0, 0, 0, 0, 0, 0],
                 backgroundColor: [
@@ -811,9 +791,9 @@ window.addRowToTable = function(resultData) {
     const badgeClass = `badge badge-${statusLabel.replace(/\s+/g, '').toLowerCase()}`;
 
     // Map backend keys to what the table expects if necessary
-    const syntaxIcon = resultData.syntax || resultData.syntax_valid ? '✅' : '❌';
-    const mxIcon = resultData.mx || resultData.mx_found ? '✅' : '❌';
-    const smtpIcon = resultData.smtp || resultData.smtp_valid ? '✅' : '❌';
+    const syntaxIcon = resultData.syntax || resultData.syntax_valid ? '' : '';
+    const mxIcon = resultData.mx || resultData.mx_found ? '' : '';
+    const smtpIcon = resultData.smtp || resultData.smtp_valid ? '' : '';
     const disposable = resultData.disposable || resultData.is_disposable ? 'Yes' : 'No';
     const dispColor = (resultData.disposable || resultData.is_disposable) ? 'var(--danger)' : 'var(--text-muted)';
 
@@ -1017,7 +997,7 @@ async function startBulkVerify() {
               dlBtn.onclick = () => downloadBulkJobCSV(window._bulkJobId, token);
             }
           }
-          if (pText) pText.textContent = '✅ Complete! ' + (st.total || 0).toLocaleString() + ' emails processed. Download CSV below.';
+          if (pText) pText.textContent = ' Complete! ' + (st.total || 0).toLocaleString() + ' emails processed. Download CSV below.';
           if (pBar) pBar.style.width = '100%';
           break;
         }
@@ -1027,11 +1007,11 @@ async function startBulkVerify() {
           continue;
         }
         if (st.status === 'failed') {
-          if (pText) pText.textContent = '❌ Job failed: ' + (st.error || 'Unknown error');
+          if (pText) pText.textContent = ' Job failed: ' + (st.error || 'Unknown error');
           break;
         }
         if (st.status === 'cancelled') {
-          if (pText) pText.textContent = '🚫 Job cancelled.';
+          if (pText) pText.textContent = ' Job cancelled.';
           break;
         }
         await sleep(2500);
@@ -1040,7 +1020,7 @@ async function startBulkVerify() {
       alert('Bulk start failed: ' + (e.message || String(e)));
     } finally {
       window.isVerifying = false;
-      if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = '<span id="bulk-btn-text">🚀 Start Verification</span>'; }
+      if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = '<span id="bulk-btn-text"> Start Verification</span>'; }
       if (stopBtn) stopBtn.style.display = 'none';
       if (pauseBtn) pauseBtn.style.display = 'none';
     }
@@ -1081,11 +1061,11 @@ async function startBulkVerify() {
   } finally {
     window.isVerifying = false;
     window._bulkIsPaused = false;
-    if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = '<span id="bulk-btn-text">🚀 Start Verification</span>'; }
+    if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = '<span id="bulk-btn-text"> Start Verification</span>'; }
     if (stopBtn) stopBtn.style.display = 'none';
     if (pauseBtn) pauseBtn.style.display = 'none';
     const pText = document.getElementById('bulk-progress-text');
-    if (pText) pText.textContent = '✅ Complete! ' + window.bulkResultsData.length + ' emails processed.';
+    if (pText) pText.textContent = ' Complete! ' + window.bulkResultsData.length + ' emails processed.';
     if (downloadBtn) {
       downloadBtn.classList.remove('hidden');
       const dlBtn = document.getElementById('bulk-download-btn');
@@ -1178,7 +1158,7 @@ if(saveBtn) {
             const data = await req.json();
             if(!req.ok) throw new Error(data.detail);
             
-            saveBtn.textContent = "Saved to Storage ✅";
+            saveBtn.textContent = "Saved to Storage ";
             saveBtn.style.background = "var(--success)";
             setTimeout(() => {
                 saveBtn.textContent = "Save Results to Storage";
@@ -1549,7 +1529,7 @@ window.generateNewApiKey = async function() {
         const modalHtml = `
         <div id="apikey-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center;">
             <div style="background:#222; padding:2rem; border-radius:10px; max-width:500px; text-align:center; border: 1px solid var(--primary);">
-                <h2 style="color:var(--danger); margin-top:0;">⚠️ IMPORTANT</h2>
+                <h2 style="color:var(--danger); margin-top:0;">️ IMPORTANT</h2>
                 <p>${data.message}</p>
                 <input type="text" id="new-key-value" value="${data.api_key}" readonly style="width:100%; padding:10px; background:#111; color:#0f0; border:1px solid #444; margin:15px 0;">
                 <button onclick="navigator.clipboard.writeText(document.getElementById('new-key-value').value); alert('Copied!')" class="btn btn-outline" style="color: white; border-color: white;">Copy to Clipboard</button>

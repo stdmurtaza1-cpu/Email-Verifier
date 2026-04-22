@@ -266,7 +266,10 @@ async def _smtp_verify_email(smtp, domain: str, email: str) -> Tuple[int, str, i
     loop = asyncio.get_running_loop()
     def _exchange():
         try:
-            smtp.mail(MAIL_FROM)
+            mc, mm = smtp.mail(MAIL_FROM)
+            if mc not in [250, 251]:
+                return mc, mm, 0
+                
             c, m = smtp.rcpt(email)
             if c == 250:
                 # Skip catch-all probe for known free/consumer domains.
@@ -278,8 +281,11 @@ async def _smtp_verify_email(smtp, domain: str, email: str) -> Tuple[int, str, i
                 fake = f"test{random.randint(10000, 99999)}@{domain}"
                 try:
                     smtp.rset()
-                    smtp.mail(MAIL_FROM)
-                    fc, _ = smtp.rcpt(fake)
+                    fmc, fmm = smtp.mail(MAIL_FROM)
+                    if fmc in [250, 251]:
+                        fc, _ = smtp.rcpt(fake)
+                    else:
+                        fc = 0
                 except Exception:
                     fc = 0
                 return c, m, fc
@@ -654,7 +660,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
             result["role"] = True
             break
             
-    FREE_EMAIL_DOMAINS = {'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com'}
+    # Uses global FREE_EMAIL_DOMAINS
 
     # Domain intelligence check
     if domain in DOMAIN_STATS and domain not in FREE_EMAIL_DOMAINS:

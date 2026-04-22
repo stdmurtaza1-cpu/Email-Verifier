@@ -9,7 +9,7 @@
     <!-- Main Stylesheet -->
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="light-theme">
 
     <!-- SHARED NAVIGATION BAR (Sticky) -->
     <nav class="navbar glass">
@@ -39,8 +39,7 @@
                 <button class="btn btn-primary" onclick="showPage('dashboard')">Dashboard</button>
             </div>
             
-            <button class="theme-toggle-btn" id="theme-toggle" title="Toggle light/dark mode" onclick="toggleTheme()">🌙</button>
-            <button class="mobile-menu-btn" id="mobile-toggle">☰</button>
+            <button class="mobile-menu-btn" id="mobile-toggle"></button>
         </div>
     </nav>
 
@@ -92,22 +91,22 @@
                 <h2 style="margin-bottom: 4rem;">How It Works</h2>
                 <div class="grid-4">
                     <div class="step-card glass">
-                        <div class="icon">📧</div>
+                        <div class="icon"></div>
                         <h3>1. Enter Email</h3>
                         <p>Paste an email or upload a massive CSV list instantly.</p>
                     </div>
                     <div class="step-card glass">
-                        <div class="icon">🔍</div>
+                        <div class="icon"></div>
                         <h3>2. We Check</h3>
                         <p>We execute explicit SMTP/DNS checks secretly.</p>
                     </div>
                     <div class="step-card glass">
-                        <div class="icon">📊</div>
+                        <div class="icon"></div>
                         <h3>3. Get Results</h3>
                         <p>Review the exact response codes returned instantly.</p>
                     </div>
                     <div class="step-card glass">
-                        <div class="icon">✅</div>
+                        <div class="icon"></div>
                         <h3>4. Clean List</h3>
                         <p>Export your pristine 100% deliverable lead list.</p>
                     </div>
@@ -121,9 +120,9 @@
                         <div>
                             <h2>Did you know? <span class="gradient-text">30%</span> of email lists go bad every year.</h2>
                             <ul class="benefit-list mt-4">
-                                <li>❌ Invalid emails utterly destroy your sender reputation.</li>
-                                <li>❌ High bounce rates get you permanently blacklisted.</li>
-                                <li>✅ Pre-flight verification saves your marketing budget.</li>
+                                <li> Invalid emails utterly destroy your sender reputation.</li>
+                                <li> High bounce rates get you permanently blacklisted.</li>
+                                <li> Pre-flight verification saves your marketing budget.</li>
                             </ul>
                             <div class="stats-counter mt-5 flex gap-4">
                                 <div><h3 class="gradient-text">98%</h3><p>DNS Accuracy</p></div>
@@ -133,14 +132,14 @@
                         </div>
                         <div class="feature-grid">
                             <!-- 8 Feature Badges -->
-                            <div class="feat-badge badge-accepted">✅ ACCEPTED<br><small>Confirmed valid</small></div>
-                            <div class="feat-badge badge-catchall">🔄 CATCH-ALL<br><small>Accepts everything</small></div>
-                            <div class="feat-badge badge-rejected">❌ REJECTED<br><small>Does not exist</small></div>
-                            <div class="feat-badge badge-error">⚠️ MX ERROR<br><small>DNS/Domain fault</small></div>
-                            <div class="feat-badge badge-spam">🚫 SPAM BLOCK<br><small>IP Blacklisted</small></div>
+                            <div class="feat-badge badge-accepted"> ACCEPTED<br><small>Confirmed valid</small></div>
+                            <div class="feat-badge badge-catchall"> CATCH-ALL<br><small>Accepts everything</small></div>
+                            <div class="feat-badge badge-rejected"> REJECTED<br><small>Does not exist</small></div>
+                            <div class="feat-badge badge-error">️ MX ERROR<br><small>DNS/Domain fault</small></div>
+                            <div class="feat-badge badge-spam"> SPAM BLOCK<br><small>IP Blacklisted</small></div>
                             <div class="feat-badge badge-timeout">⏱️ TIMEOUT<br><small>No response</small></div>
-                            <div class="feat-badge badge-disposable">🗑️ DISPOSABLE<br><small>Temporary email</small></div>
-                            <div class="feat-badge badge-greylisted">📋 GREYLISTED<br><small>Temp rejection</small></div>
+                            <div class="feat-badge badge-disposable">️ DISPOSABLE<br><small>Temporary email</small></div>
+                            <div class="feat-badge badge-greylisted"> GREYLISTED<br><small>Temp rejection</small></div>
                         </div>
                     </div>
                 </div>
@@ -159,7 +158,7 @@
                 <div class="glass p-5 rounded" style="border-left: 4px solid var(--primary); background: rgba(0,242,96,0.04);">
                     <div class="grid-2 align-center gap-4">
                         <div>
-                            <span class="section-tag" style="background: rgba(0,242,96,0.15); color: var(--primary); padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.85rem;">New Here? Start Here 👇</span>
+                            <span class="section-tag" style="background: rgba(0,242,96,0.15); color: var(--primary); padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.85rem;">New Here? Start Here </span>
                             <h2 class="mt-3">3 Steps to Clean Your Email List</h2>
                             <div class="mt-4" style="display: flex; flex-direction: column; gap: 1.2rem;">
                                 <div class="flex align-center gap-3">
@@ -180,12 +179,12 @@
                         <div class="glass p-4 rounded" style="border: 1px solid rgba(0,242,96,0.2);">
                             <h4 class="mb-3" style="color: var(--primary);">What each status means:</h4>
                             <div style="display: flex; flex-direction: column; gap: 0.8rem; font-size: 0.9rem;">
-                                <div class="flex align-center gap-2"><span style="color: var(--success);">✅ VALID</span> <span class="text-muted">— Email exists and can receive mail</span></div>
-                                <div class="flex align-center gap-2"><span style="color: #00e676;">🔄 CATCH-ALL</span> <span class="text-muted">— Domain accepts all emails (can't verify individually)</span></div>
-                                <div class="flex align-center gap-2"><span style="color: var(--danger);">❌ INVALID</span> <span class="text-muted">— Email does not exist, remove it from your list</span></div>
-                                <div class="flex align-center gap-2"><span style="color: #ff9800;">🗑️ DISPOSABLE</span> <span class="text-muted">— Temporary/fake email, avoid it</span></div>
+                                <div class="flex align-center gap-2"><span style="color: var(--success);"> VALID</span> <span class="text-muted">— Email exists and can receive mail</span></div>
+                                <div class="flex align-center gap-2"><span style="color: #00e676;"> CATCH-ALL</span> <span class="text-muted">— Domain accepts all emails (can't verify individually)</span></div>
+                                <div class="flex align-center gap-2"><span style="color: var(--danger);"> INVALID</span> <span class="text-muted">— Email does not exist, remove it from your list</span></div>
+                                <div class="flex align-center gap-2"><span style="color: #ff9800;">️ DISPOSABLE</span> <span class="text-muted">— Temporary/fake email, avoid it</span></div>
                                 <div class="flex align-center gap-2"><span style="color: var(--warning);">⏱️ TIMEOUT</span> <span class="text-muted">— Server didn't respond, try again later</span></div>
-                                <div class="flex align-center gap-2"><span style="color: #607d8b;">⚠️ GREYLISTED</span> <span class="text-muted">— Temporarily rejected, usually valid</span></div>
+                                <div class="flex align-center gap-2"><span style="color: #607d8b;">️ GREYLISTED</span> <span class="text-muted">— Temporarily rejected, usually valid</span></div>
                             </div>
                         </div>
                     </div>
@@ -203,7 +202,7 @@
                   <!-- Card 1 -->
                   <div class="review-card glass">
                     <div>
-                      <div class="review-stars">★★★★★</div>
+                      <div class="review-stars"></div>
                       <p class="review-text">"This tool completely saved our domain reputation. We cleaned a stale list of 100k leads in under an hour. Deliverability is back to 99%."</p>
                     </div>
                     <div class="reviewer-meta">
@@ -211,7 +210,7 @@
                       <div class="reviewer-details">
                         <h4>Sarah Jenkins</h4>
                         <p>Growth Lead, UK</p>
-                        <span class="verified-buyer">✔ Verified Agency User</span>
+                        <span class="verified-buyer"> Verified Agency User</span>
                       </div>
                     </div>
                   </div>
@@ -219,7 +218,7 @@
                   <!-- Card 2 -->
                   <div class="review-card glass">
                     <div>
-                      <div class="review-stars">★★★★★</div>
+                      <div class="review-stars"></div>
                       <p class="review-text">"The dashboard is incredibly fast and intuitive. The catch-all detection prevents so many hard bounces. It's an essential part of our outbound stack now."</p>
                     </div>
                     <div class="reviewer-meta">
@@ -227,7 +226,7 @@
                       <div class="reviewer-details">
                         <h4>Marcus Pierce</h4>
                         <p>Sales Director, USA</p>
-                        <span class="verified-buyer">✔ Verified Pro User</span>
+                        <span class="verified-buyer"> Verified Pro User</span>
                       </div>
                     </div>
                   </div>
@@ -235,7 +234,7 @@
                   <!-- Card 3 -->
                   <div class="review-card glass">
                     <div>
-                      <div class="review-stars">★★★★★</div>
+                      <div class="review-stars"></div>
                       <p class="review-text">"We integrated their API directly into our signup flow. Invalid registrations dropped to zero overnight. Best investment we've made this quarter."</p>
                     </div>
                     <div class="reviewer-meta">
@@ -243,7 +242,7 @@
                       <div class="reviewer-details">
                         <h4>Alex K.</h4>
                         <p>CTO, SaaS Startup</p>
-                        <span class="verified-buyer">✔ Verified API Partner</span>
+                        <span class="verified-buyer"> Verified API Partner</span>
                       </div>
                     </div>
                   </div>
@@ -251,7 +250,7 @@
                   <!-- Card 4 -->
                   <div class="review-card glass">
                     <div>
-                      <div class="review-stars">★★★★★</div>
+                      <div class="review-stars"></div>
                       <p class="review-text">"Support is fantastic and the bulk upload tool just works without timing out, unlike other platforms we've tried. Huge time saver."</p>
                     </div>
                     <div class="reviewer-meta">
@@ -259,7 +258,7 @@
                       <div class="reviewer-details">
                         <h4>Diana Lopez</h4>
                         <p>Email Marketer, Spain</p>
-                        <span class="verified-buyer">✔ Verified Starter User</span>
+                        <span class="verified-buyer"> Verified Starter User</span>
                       </div>
                     </div>
                   </div>
@@ -267,7 +266,7 @@
                   <!-- Card 5 -->
                   <div class="review-card glass">
                     <div>
-                      <div class="review-stars">★★★★☆</div>
+                      <div class="review-stars"></div>
                       <p class="review-text">"Very reliable verification. The only thing I'd want is native integrations with CRMs, but the CSV export is simple enough for our team."</p>
                     </div>
                     <div class="reviewer-meta">
@@ -275,7 +274,7 @@
                       <div class="reviewer-details">
                         <h4>Tom Richards</h4>
                         <p>Account Executive, Canada</p>
-                        <span class="verified-buyer">✔ Verified User</span>
+                        <span class="verified-buyer"> Verified User</span>
                       </div>
                     </div>
                   </div>
@@ -283,7 +282,7 @@
                   <!-- Card 6 -->
                   <div class="review-card glass">
                     <div>
-                      <div class="review-stars">★★★★★</div>
+                      <div class="review-stars"></div>
                       <p class="review-text">"Unbeatable accuracy compared to the other 'big names' we tested. Veridrax successfully flags risky disposable emails perfectly."</p>
                     </div>
                     <div class="reviewer-meta">
@@ -291,7 +290,7 @@
                       <div class="reviewer-details">
                         <h4>Elena M.</h4>
                         <p>Founder, LeadGen Agency</p>
-                        <span class="verified-buyer">✔ Verified Enterprise User</span>
+                        <span class="verified-buyer"> Verified Enterprise User</span>
                       </div>
                     </div>
                   </div>
@@ -377,7 +376,7 @@
                         <thead>
                             <tr style="background: rgba(0,255,136,0.08); border-bottom: 2px solid var(--primary);">
                                 <th style="padding: 1rem 1.2rem; text-align: left; color: var(--text-muted); font-weight: 600;">Feature</th>
-                                <th style="padding: 1rem; text-align: center; color: var(--primary); font-weight: 700; font-size: 1rem;">✅ Veridrax</th>
+                                <th style="padding: 1rem; text-align: center; color: var(--primary); font-weight: 700; font-size: 1rem;"> Veridrax</th>
                                 <th style="padding: 1rem; text-align: center; color: var(--text-muted);">NeverBounce</th>
                                 <th style="padding: 1rem; text-align: center; color: var(--text-muted);">ZeroBounce</th>
                                 <th style="padding: 1rem; text-align: center; color: var(--text-muted);">Hunter.io</th>
@@ -403,51 +402,51 @@
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">API Access</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ All Plans</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Paid only</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Paid only</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Paid only</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Paid only</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> All Plans</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Paid only</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Paid only</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Paid only</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Paid only</td>
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">Bulk CSV Upload</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ Included</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Included</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Included</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">❌ Limited</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Included</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> Included</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Included</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Included</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Limited</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Included</td>
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">SMTP Deep Verify</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ Yes</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">❌ No</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> No</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">Disposable Email Detection</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ 72,000+ domains</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ Basic</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> 72,000+ domains</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ Basic</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">No Personal Data Stored</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ Always</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ Varies</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ Varies</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ Varies</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> Always</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ Varies</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ Varies</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ Varies</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">Free Tier</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ 100/day free</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ Trial only</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ 100 credits</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ 25/month</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">❌ No</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> 100/day free</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ Trial only</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ 100 credits</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ 25/month</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> No</td>
                             </tr>
                             <tr style="background: rgba(0,255,136,0.05);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 700; color: var(--primary);">Best Plan Value</td>
@@ -476,9 +475,9 @@
                 <h1 class="gradient-text">Simple, Transparent Pricing.</h1>
                 <p>Scale your validation engine seamlessly. No hidden fees, no auto-billing.</p>
                 <div class="flex gap-3 justify-center mt-4" style="flex-wrap: wrap;">
-                    <div class="glass p-3 rounded" style="font-size: 0.9rem; padding: 0.6rem 1.2rem !important;">✅ No credit card required to start</div>
-                    <div class="glass p-3 rounded" style="font-size: 0.9rem; padding: 0.6rem 1.2rem !important;">✅ Manual activation — you pay only when you want</div>
-                    <div class="glass p-3 rounded" style="font-size: 0.9rem; padding: 0.6rem 1.2rem !important;">✅ Credits never expire</div>
+                    <div class="glass p-3 rounded" style="font-size: 0.9rem; padding: 0.6rem 1.2rem !important;"> No credit card required to start</div>
+                    <div class="glass p-3 rounded" style="font-size: 0.9rem; padding: 0.6rem 1.2rem !important;"> Manual activation — you pay only when you want</div>
+                    <div class="glass p-3 rounded" style="font-size: 0.9rem; padding: 0.6rem 1.2rem !important;"> Credits never expire</div>
                 </div>
             </section>
 
@@ -490,12 +489,12 @@
                         <h3>FREE</h3>
                         <div class="price">$0<span>/month</span></div>
                         <ul class="price-features">
-                            <li>✔️ 100 Verifications / Daily</li>
-                            <li>✔️ Single Email Verify</li>
-                            <li>✔️ Basic Status Results</li>
-                            <li class="disabled">❌ Bulk Engine</li>
-                            <li class="disabled">❌ API Access</li>
-                            <li class="disabled">❌ Cloud Storage</li>
+                            <li>️ 100 Verifications / Daily</li>
+                            <li>️ Single Email Verify</li>
+                            <li>️ Basic Status Results</li>
+                            <li class="disabled"> Bulk Engine</li>
+                            <li class="disabled"> API Access</li>
+                            <li class="disabled"> Cloud Storage</li>
                         </ul>
                         <button class="btn btn-outline w-100" onclick="document.getElementById('nav-signup-btn').click()">Get Started Free</button>
                     </div>
@@ -505,12 +504,12 @@
                         <h3>STARTER</h3>
                         <div class="price">$4.99<span>/week</span></div>
                         <ul class="price-features">
-                            <li>✔️ 50k Verifications / Daily</li>
-                            <li>✔️ 50k API Calls / Daily</li>
-                            <li>✔️ Bulk Engine Included</li>
-                            <li>✔️ CSV Downloads</li>
-                            <li>✔️ 24/7 Global Support</li>
-                            <li>✔️ No Personal Data Stored</li>
+                            <li>️ 50k Verifications / Daily</li>
+                            <li>️ 50k API Calls / Daily</li>
+                            <li>️ Bulk Engine Included</li>
+                            <li>️ CSV Downloads</li>
+                            <li>️ 24/7 Global Support</li>
+                            <li>️ No Personal Data Stored</li>
                         </ul>
                         <a href="mailto:support@veridrax.com?subject=Starter Plan Upgrade" class="btn btn-primary w-100" style="text-align: center; text-decoration: none;">Contact to Upgrade</a>
                     </div>
@@ -521,12 +520,12 @@
                         <h3>PRO</h3>
                         <div class="price">$14.99<span>/month</span></div>
                         <ul class="price-features">
-                            <li>✔️ 100k Verifications / Daily</li>
-                            <li>✔️ 100k API Calls / Daily</li>
-                            <li>✔️ Bulk Engine Included</li>
-                            <li>✔️ 500MB Cloud Storage</li>
-                            <li>✔️ 24/7 Global Support</li>
-                            <li>✔️ No Personal Data Stored</li>
+                            <li>️ 100k Verifications / Daily</li>
+                            <li>️ 100k API Calls / Daily</li>
+                            <li>️ Bulk Engine Included</li>
+                            <li>️ 500MB Cloud Storage</li>
+                            <li>️ 24/7 Global Support</li>
+                            <li>️ No Personal Data Stored</li>
                         </ul>
                         <a href="mailto:support@veridrax.com?subject=Pro Plan Upgrade" class="btn btn-primary w-100" style="text-align: center; text-decoration: none; box-shadow: 0 0 15px var(--primary-glow);">Contact to Upgrade</a>
                     </div>
@@ -536,19 +535,19 @@
                         <h3>ULTIMATE</h3>
                         <div class="price">$42.99<span>/month</span></div>
                         <ul class="price-features">
-                            <li>✔️ 500k Verifications / Daily</li>
-                            <li>✔️ 500k API Calls / Daily</li>
-                            <li>✔️ Bulk Engine Included</li>
-                            <li>✔️ 1GB Cloud Storage</li>
-                            <li>✔️ Ultra Fast & Reliable</li>
-                            <li>✔️ 24/7 Priority Support</li>
+                            <li>️ 500k Verifications / Daily</li>
+                            <li>️ 500k API Calls / Daily</li>
+                            <li>️ Bulk Engine Included</li>
+                            <li>️ 1GB Cloud Storage</li>
+                            <li>️ Ultra Fast & Reliable</li>
+                            <li>️ 24/7 Priority Support</li>
                         </ul>
                         <a href="mailto:support@veridrax.com?subject=Ultimate Plan Upgrade" class="btn btn-primary w-100" style="text-align: center; text-decoration: none;">Contact to Upgrade</a>
                     </div>
                 </div>
 
                 <p class="text-center mt-5" style="color: var(--text-muted); font-size: 0.9rem;">
-                    🔒 To upgrade your plan, contact us at <strong>support@veridrax.com</strong> — we'll manually activate your tier within 24 hours securely.
+                     To upgrade your plan, contact us at <strong>support@veridrax.com</strong> — we'll manually activate your tier within 24 hours securely.
                 </p>
             </section>
             
@@ -563,7 +562,7 @@
                         <thead>
                             <tr style="background: rgba(0,255,136,0.08); border-bottom: 2px solid var(--primary);">
                                 <th style="padding: 1rem 1.2rem; text-align: left; color: var(--text-muted); font-weight: 600;">Feature</th>
-                                <th style="padding: 1rem; text-align: center; color: var(--primary); font-weight: 700; font-size: 1rem;">✅ Veridrax</th>
+                                <th style="padding: 1rem; text-align: center; color: var(--primary); font-weight: 700; font-size: 1rem;"> Veridrax</th>
                                 <th style="padding: 1rem; text-align: center; color: var(--text-muted);">NeverBounce</th>
                                 <th style="padding: 1rem; text-align: center; color: var(--text-muted);">ZeroBounce</th>
                                 <th style="padding: 1rem; text-align: center; color: var(--text-muted);">Hunter.io</th>
@@ -589,51 +588,51 @@
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">API Access</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ All Plans</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Paid only</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Paid only</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Paid only</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Paid only</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> All Plans</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Paid only</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Paid only</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Paid only</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Paid only</td>
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">Bulk CSV Upload</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ Included</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Included</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Included</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">❌ Limited</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Included</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> Included</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Included</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Included</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Limited</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Included</td>
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">SMTP Deep Verify</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ Yes</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">❌ No</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> No</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">Disposable Email Detection</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ 72,000+ domains</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ Basic</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> 72,000+ domains</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ Basic</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">No Personal Data Stored</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ Always</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ Varies</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ Varies</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ Varies</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">✅ Yes</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> Always</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ Varies</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ Varies</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ Varies</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> Yes</td>
                             </tr>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 500;">Free Tier</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;">✅ 100/day free</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ Trial only</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ 100 credits</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">⚠️ 25/month</td>
-                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">❌ No</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--primary); font-weight: 700;"> 100/day free</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ Trial only</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ 100 credits</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);">️ 25/month</td>
+                                <td style="padding: 0.9rem; text-align: center; color: var(--text-muted);"> No</td>
                             </tr>
                             <tr style="background: rgba(0,255,136,0.05);">
                                 <td style="padding: 0.9rem 1.2rem; font-weight: 700; color: var(--primary);">Best Plan Value</td>
@@ -715,9 +714,9 @@
                         <img src="/veridrax-icon.png" alt="Veridrax" style="width: 90px; border-radius: 12px; border: 3px solid var(--primary);">
                         <h3>Veridrax</h3>
                         <p>Professional Email Verification</p>
-                        <a href="mailto:support@veridrax.com" class="btn btn-outline w-100 mt-2" style="border-color: var(--primary);">📧 support@veridrax.com</a>
-                        <a href="tel:+923110403991" class="btn btn-outline w-100 mt-2" style="border-color: var(--primary);">📞 +92 3110403991</a>
-                        <a href="https://wa.me/923110403991?text=Hi,%20I%20want%20to%20upgrade%20my%20plan" target="_blank" class="btn btn-outline mt-2 w-100" style="border-color: #25D366; color: #25D366;">💬 WhatsApp: Click to chat</a>
+                        <a href="mailto:support@veridrax.com" class="btn btn-outline w-100 mt-2" style="border-color: var(--primary);"> support@veridrax.com</a>
+                        <a href="tel:+923110403991" class="btn btn-outline w-100 mt-2" style="border-color: var(--primary);"> +92 3110403991</a>
+                        <a href="https://wa.me/923110403991?text=Hi,%20I%20want%20to%20upgrade%20my%20plan" target="_blank" class="btn btn-outline mt-2 w-100" style="border-color: #25D366; color: #25D366;"> WhatsApp: Click to chat</a>
                     </div>
 
                     <!-- Feedback Form -->
@@ -747,25 +746,25 @@
             <section class="container mt-2 mb-5">
                 <div class="grid-4" style="gap: 1.2rem;">
                     <div class="glass p-4 rounded text-center" style="border-top: 3px solid var(--primary);">
-                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">📦</div>
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;"></div>
                         <h4>Upgrade Plan</h4>
                         <p class="text-muted mt-2" style="font-size: 0.85rem;">Email or WhatsApp us — we activate manually within 24 hours.</p>
                         <a href="mailto:support@veridrax.com?subject=Plan Upgrade Request" class="btn btn-outline mt-3" style="font-size: 0.8rem; padding: 0.5rem 1rem; width: 100%;">Request Upgrade</a>
                     </div>
                     <div class="glass p-4 rounded text-center" style="border-top: 3px solid var(--secondary);">
-                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">🐛</div>
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;"></div>
                         <h4>Report a Bug</h4>
                         <p class="text-muted mt-2" style="font-size: 0.85rem;">Something broken? Tell us with steps to reproduce and we'll fix it fast.</p>
                         <a href="mailto:support@veridrax.com?subject=Bug Report" class="btn btn-outline mt-3" style="font-size: 0.8rem; padding: 0.5rem 1rem; width: 100%;">Report Issue</a>
                     </div>
                     <div class="glass p-4 rounded text-center" style="border-top: 3px solid #ffb300;">
-                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">💡</div>
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;"></div>
                         <h4>Feature Request</h4>
                         <p class="text-muted mt-2" style="font-size: 0.85rem;">Have an idea? We love user feedback and implement the best suggestions.</p>
                         <a href="mailto:support@veridrax.com?subject=Feature Request" class="btn btn-outline mt-3" style="font-size: 0.8rem; padding: 0.5rem 1rem; width: 100%;">Suggest Feature</a>
                     </div>
                     <div class="glass p-4 rounded text-center" style="border-top: 3px solid #25D366;">
-                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">💬</div>
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;"></div>
                         <h4>Instant Chat</h4>
                         <p class="text-muted mt-2" style="font-size: 0.85rem;">For urgent matters, reach us directly on WhatsApp for fastest response.</p>
                         <a href="https://wa.me/923110403991?text=Hi%20Veridrax%2C%20I%20need%20help%20with..." target="_blank" class="btn btn-outline mt-3" style="font-size: 0.8rem; padding: 0.5rem 1rem; width: 100%; border-color: #25D366; color: #25D366;">Open WhatsApp</a>
@@ -823,15 +822,15 @@
                 
                 <aside class="dash-sidebar glass">
                     <nav class="dash-nav">
-                        <a onclick="showDashTab('overview')" class="dash-nav-btn sidebar-link active" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">📊 Dashboard</a>
-                        <a onclick="showDashTab('single')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">✉️ Single Verify</a>
-                        <a onclick="showDashTab('bulk')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">📋 Bulk Verify</a>
-                        <a onclick="showDashTab('plan')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">💳 My Plan</a>
-                        <a onclick="showDashTab('partner')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">🤝 Partner Licenses</a>
-                        <a onclick="showDashTab('history')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">📜 History</a>
-                        <a onclick="showDashTab('apikeys')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">🔑 API Keys</a>
-                        <a onclick="showDashTab('files')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">💾 My Files</a>
-                        <a id="user-logout-btn" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--danger); text-decoration:none; margin-top: auto;">🚪 Logout</a>
+                        <a onclick="showDashTab('overview')" class="dash-nav-btn sidebar-link active" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;"> Dashboard</a>
+                        <a onclick="showDashTab('single')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;">️ Single Verify</a>
+                        <a onclick="showDashTab('bulk')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;"> Bulk Verify</a>
+                        <a onclick="showDashTab('plan')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;"> My Plan</a>
+                        <a onclick="showDashTab('partner')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;"> Partner Licenses</a>
+                        <a onclick="showDashTab('history')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;"> History</a>
+                        <a onclick="showDashTab('apikeys')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;"> API Keys</a>
+                        <a onclick="showDashTab('files')" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--text); text-decoration:none;"> My Files</a>
+                        <a id="user-logout-btn" class="dash-nav-btn sidebar-link" style="cursor:pointer; display:block; padding:0.8rem; color:var(--danger); text-decoration:none; margin-top: auto;"> Logout</a>
                     </nav>
                 </aside>
 
@@ -918,7 +917,7 @@
                         <div id="bulk-unlocked-ui" class="glass p-4 rounded mt-4 hidden">
                             <div style="margin-bottom:15px">
                                 <label style="display:inline-block; padding:10px 20px; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; border-radius:8px; cursor:pointer; font-size:14px">
-                                    📁 Upload TXT or CSV File
+                                     Upload TXT or CSV File
                                     <input type="file" accept=".txt,.csv" onchange="handleFileUpload(this)" style="display:none">
                                 </label>
                                 <span id="file-upload-info" style="display:none;margin-left:15px;color:#00d4ff;font-size:14px"></span>
@@ -959,7 +958,6 @@
                                 margin:15px 0;padding:15px;
                                 background:#1a1a2e;border-radius:8px;
                                 display:flex;gap:20px;flex-wrap:wrap;border: 1px solid rgba(255,255,255,0.1);">
-                                
                                 <span style="font-size: 14px;">✅ Accepted: <b id="count-accepted" style="color: var(--success);">0</b></span>
                                 <span style="font-size: 14px;">🔄 Catch-All: <b id="count-catchall" style="color: var(--secondary);">0</b></span>
                                 <span style="font-size: 14px;">❌ Rejected: <b id="count-rejected" style="color: var(--danger);">0</b></span>
@@ -1175,7 +1173,7 @@ curl -X POST "http://localhost:8000/api/verify" \
         <div id="login-modal" class="modal-card glass hidden">
             <div class="flex flex-between align-center mb-4">
                 <h2>Welcome Back</h2>
-                <button class="close-modal text-muted">✖</button>
+                <button class="close-modal text-muted"></button>
             </div>
             <form id="login-form" class="flex flex-col gap-3">
                 <input type="email" id="login-email" class="input-modern" placeholder="Account Email" required>
@@ -1198,7 +1196,7 @@ curl -X POST "http://localhost:8000/api/verify" \
         <div id="forgot-modal" class="modal-card glass hidden">
             <div class="flex flex-between align-center mb-4">
                 <h2>Reset Password</h2>
-                <button class="close-modal text-muted" onclick="document.getElementById('forgot-modal').classList.add('hidden')">✖</button>
+                <button class="close-modal text-muted" onclick="document.getElementById('forgot-modal').classList.add('hidden')"></button>
             </div>
             <form id="forgot-form" class="flex flex-col gap-3">
                 <input type="email" id="forgot-email" class="input-modern" placeholder="Account Email" required>
@@ -1217,7 +1215,7 @@ curl -X POST "http://localhost:8000/api/verify" \
         <div id="signup-modal" class="modal-card glass hidden">
             <div class="flex flex-between align-center mb-4">
                 <h2>Create Account</h2>
-                <button class="close-modal text-muted">✖</button>
+                <button class="close-modal text-muted"></button>
             </div>
             <form id="signup-form" class="flex flex-col gap-3">
                 <input type="email" id="signup-email" class="input-modern" placeholder="Valid Email" required>
@@ -1237,7 +1235,7 @@ curl -X POST "http://localhost:8000/api/verify" \
         <div id="otp-modal" class="modal-card glass hidden">
             <div class="flex flex-between align-center mb-4">
                 <h2 id="otp-title">Verify OTP</h2>
-                <button class="close-modal text-muted" onclick="closeModals()">✖</button>
+                <button class="close-modal text-muted" onclick="closeModals()"></button>
             </div>
             <form id="otp-form" class="flex flex-col gap-3">
                 <p id="otp-instructions" class="text-muted" style="font-size: 0.9rem; text-align: center;">Enter the 6-digit code sent to your email.</p>
