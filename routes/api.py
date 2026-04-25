@@ -11,7 +11,7 @@ import os
 import uuid
 from datetime import datetime
 from sqlalchemy.orm import Session
-from database import get_db, SessionLocal, User, EmailResult, UserFile, PageContent
+from database import get_db, SessionLocal, User, EmailResult, UserFile, PageContent, ApiKey, ApiAnalytics
 from middleware.auth import get_current_user
 from core.verifier import verify_email
 import csv
@@ -143,18 +143,68 @@ async def verify_free(request: Request, payload: VerifyRequest, db: Session = De
     return result
 
 
-@router.post("/keys")
+@router.post("/keys/generate")
 async def generate_api_key(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     raw_key = "evs_" + secrets.token_urlsafe(32)
     hashed = hashlib.sha256(raw_key.encode()).hexdigest()
     
-    current_user.api_key = hashed
-    current_user.api_key_active = True
+    new_key = ApiKey(
+        key=hashed,
+        user_id=getattr(current_user, 'original_id', current_user.id),
+        name="Generated Key",
+        status="active",
+        rate_limit=300
+    )
+    db.add(new_key)
     db.commit()
     
     return {
         "api_key": raw_key,
         "message": "Save this key now. It will never be shown again."
+    }
+
+@router.get("/keys")
+async def list_api_keys(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user_id = getattr(current_user, 'original_id', current_user.id)
+    keys = db.query(ApiKey).filter(ApiKey.user_id == user_id).all()
+    return [{"id": k.id, "name": k.name, "status": k.status, "rate_limit": k.rate_limit, "created_at": k.created_at} for k in keys]
+
+@router.put("/keys/{key_id}/revoke")
+async def revoke_api_key(key_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user_id = getattr(current_user, 'original_id', current_user.id)
+    key = db.query(ApiKey).filter(ApiKey.id == key_id, ApiKey.user_id == user_id).first()
+    if not key:
+        raise HTTPException(status_code=404, detail="API Key not found.")
+    key.status = "revoked"
+    db.commit()
+    return {"message": "API Key revoked successfully."}
+
+@router.get("/analytics")
+async def get_api_analytics(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user_id = getattr(current_user, 'original_id', current_user.id)
+    # Get all keys for this user
+    user_keys = db.query(ApiKey).filter(ApiKey.user_id == user_id).all()
+    key_ids = [k.id for k in user_keys]
+    
+    if not key_ids:
+        return {"total_requests": 0, "successful": 0, "rate_limited": 0, "endpoints": {}}
+        
+    # Aggregate analytics
+    analytics = db.query(ApiAnalytics).filter(ApiAnalytics.key_id.in_(key_ids)).all()
+    
+    total = len(analytics)
+    successful = sum(1 for a in analytics if str(a.status_code).startswith('2'))
+    rate_limited = sum(1 for a in analytics if a.status_code == 429)
+    
+    endpoints = {}
+    for a in analytics:
+        endpoints[a.endpoint] = endpoints.get(a.endpoint, 0) + 1
+        
+    return {
+        "total_requests": total,
+        "successful": successful,
+        "rate_limited": rate_limited,
+        "endpoints": endpoints
     }
 
 @router.post("/verify")

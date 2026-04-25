@@ -1,5 +1,5 @@
 import hashlib
-from fastapi import Depends, HTTPException, status, Header, Request
+from fastapi import Depends, HTTPException, status, Header, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
@@ -34,6 +34,7 @@ async def get_raw_current_user(
 
 async def get_current_user(
     request: Request,
+    background_tasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
@@ -41,6 +42,54 @@ async def get_current_user(
     api_key_header = request.headers.get("X-API-Key")
     if api_key_header:
         hashed_incoming = hashlib.sha256(api_key_header.encode()).hexdigest()
+        
+        # New Advanced API Key System
+        from database import ApiKey
+        api_key_obj = db.query(ApiKey).filter(ApiKey.key == hashed_incoming).first()
+        
+        if api_key_obj:
+            if api_key_obj.status != "active":
+                raise HTTPException(status_code=403, detail="API Key has been revoked")
+                
+            user = api_key_obj.user
+            if not getattr(user, "is_active", True):
+                raise HTTPException(status_code=403, detail="Account disabled.")
+            
+            # Rate Limiting via Redis
+            from cache import get_redis
+            import time
+            try:
+                r = get_redis()
+                current_minute = int(time.time() / 60)
+                limit_key = f"rate_limit:api_key:{api_key_obj.id}:{current_minute}"
+                current_requests = await r.incr(limit_key)
+                if current_requests == 1:
+                    await r.expire(limit_key, 60)
+                if current_requests > api_key_obj.rate_limit:
+                    from core.api_key_auth import log_api_usage
+                    background_tasks.add_task(log_api_usage, api_key_obj.id, str(request.url.path), 429)
+                    raise HTTPException(status_code=429, detail=f"Rate limit exceeded. Limit is {api_key_obj.rate_limit} req/min.")
+            except HTTPException:
+                raise
+            except Exception:
+                pass # Redis failure fallback
+                
+            from core.api_key_auth import log_api_usage
+            background_tasks.add_task(log_api_usage, api_key_obj.id, str(request.url.path), 200)
+            
+            # Set partner link properties if applicable
+            if getattr(user, "linked_api_key", None) and getattr(user, "partner_status", None) == "approved":
+                partner = db.query(User).filter(User.api_key == user.linked_api_key).first()
+                if partner and getattr(partner, "is_active", True) and getattr(partner, "api_key_active", True):
+                    partner.is_linked_session = True
+                    partner.original_email = user.email
+                    partner.original_id = user.id
+                    partner.original_api_key = user.api_key
+                    partner.child_user_obj = user
+                    return partner
+            return user
+
+        # Fallback to Old Simple API Key System
         user = db.query(User).filter(User.api_key == hashed_incoming).first()
         if user:
             if not getattr(user, "is_active", True) or not getattr(user, "api_key_active", True):

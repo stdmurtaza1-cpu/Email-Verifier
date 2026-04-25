@@ -153,6 +153,10 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def serve_admin_panel():
     return FileResponse(os.path.join(os.path.dirname(__file__), "static", "admin.html"))
 
+@app.get("/developer/docs", include_in_schema=False)
+async def serve_api_docs():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "static", "api-docs.html"))
+
 app.include_router(auth_router, prefix="/api")
 app.include_router(admin_router, prefix="/api/admin")
 app.include_router(storage_router, prefix="/api/storage")

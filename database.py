@@ -115,6 +115,30 @@ class SmtpIp(Base):
     health_score = Column(Integer, default=100)
     last_checked = Column(DateTime, default=datetime.datetime.utcnow)
 
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    key = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    name = Column(String, default="Default Key")
+    status = Column(String, default="active") # active, revoked
+    rate_limit = Column(Integer, default=60)  # requests per minute
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", backref="api_keys")
+
+class ApiAnalytics(Base):
+    __tablename__ = "api_analytics"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    key_id = Column(Integer, ForeignKey("api_keys.id"), index=True, nullable=False)
+    endpoint = Column(String, nullable=False)
+    status_code = Column(Integer, nullable=False)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+
+    api_key = relationship("ApiKey", backref="analytics")
+
 class PageContent(Base):
     __tablename__ = "page_contents"
     
