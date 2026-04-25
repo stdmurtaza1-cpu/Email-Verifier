@@ -34,3 +34,4 @@ slowapi
 sqlalchemy
 stripe
 uvicorn[standard]
+PySocks

@@ -115,6 +115,19 @@ class SmtpIp(Base):
     health_score = Column(Integer, default=100)
     last_checked = Column(DateTime, default=datetime.datetime.utcnow)
 
+class Proxy(Base):
+    __tablename__ = "proxies"
+    
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    ip = Column(String, nullable=False)
+    port = Column(Integer, nullable=False)
+    username = Column(String, nullable=True)
+    password = Column(String, nullable=True)
+    type = Column(String, default="SOCKS5") # SOCKS5, HTTP
+    status = Column(String, default="active") # active, inactive
+    last_checked = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
 class ApiKey(Base):
     __tablename__ = "api_keys"
     

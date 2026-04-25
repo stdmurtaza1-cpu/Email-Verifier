@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from database import get_db, User, Subscription, EmailResult, SmtpIp, PageContent
+from database import get_db, User, Subscription, EmailResult, SmtpIp, PageContent, Proxy
 from middleware.auth import get_current_admin
 from pydantic import BaseModel
+from typing import Optional, List
 from fastapi import UploadFile, File
 import os
 from datetime import datetime, date, timedelta
@@ -34,6 +35,13 @@ class RevokeKeyDTO(BaseModel):
 class AddIpDTO(BaseModel):
     ip_address: str
     status: str = "active"
+
+class AddProxyDTO(BaseModel):
+    ip: str
+    port: int
+    username: Optional[str] = None
+    password: Optional[str] = None
+    type: str = "SOCKS5"
 
 @router.post("/upgrade-plan")
 async def upgrade_user_plan(data: UpgradePlanDTO, db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):
@@ -398,3 +406,86 @@ async def upload_admin_image(file: UploadFile = File(...), current_admin: dict =
         f.write(await file.read())
         
     return {"url": f"/uploads/images/{filename}"}
+
+# ── External Proxy Management ────────────────────────────────────────────────
+@router.get("/proxies")
+async def get_proxies(db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):
+    proxies = db.query(Proxy).all()
+    return {"proxies": [
+        {
+            "id": p.id,
+            "ip": p.ip,
+            "port": p.port,
+            "username": p.username,
+            "password": p.password,
+            "type": p.type,
+            "status": p.status,
+            "last_checked": p.last_checked.isoformat() if p.last_checked else None,
+            "created_at": p.created_at.isoformat() if p.created_at else None
+        } for p in proxies
+    ]}
+
+@router.post("/proxies")
+async def add_proxy(data: AddProxyDTO, db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):
+    proxy = Proxy(
+        ip=data.ip,
+        port=data.port,
+        username=data.username,
+        password=data.password,
+        type=data.type,
+        status="active"
+    )
+    db.add(proxy)
+    db.commit()
+    db.refresh(proxy)
+    return {"message": "Proxy added successfully", "id": proxy.id}
+
+@router.patch("/proxies/{proxy_id}/toggle")
+async def toggle_proxy(proxy_id: int, status: str, db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):
+    proxy = db.query(Proxy).filter(Proxy.id == proxy_id).first()
+    if not proxy:
+        raise HTTPException(status_code=404, detail="Proxy not found")
+    proxy.status = status
+    db.commit()
+    return {"message": f"Proxy marked as {status}"}
+
+@router.delete("/proxies/{proxy_id}")
+async def delete_proxy(proxy_id: int, db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):
+    proxy = db.query(Proxy).filter(Proxy.id == proxy_id).first()
+    if not proxy:
+        raise HTTPException(status_code=404, detail="Proxy not found")
+    db.delete(proxy)
+    db.commit()
+    return {"message": "Proxy deleted successfully"}
+
+@router.post("/proxies/{proxy_id}/test")
+async def test_external_proxy(proxy_id: int, db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):
+    proxy = db.query(Proxy).filter(Proxy.id == proxy_id).first()
+    if not proxy:
+        raise HTTPException(status_code=404, detail="Proxy not found")
+    
+    import socks
+    import socket
+    
+    try:
+        s = socks.socksocket()
+        ptype = socks.SOCKS5 if proxy.type.upper() == "SOCKS5" else socks.HTTP
+        if proxy.username and proxy.password:
+            s.set_proxy(ptype, proxy.ip, proxy.port, username=proxy.username, password=proxy.password)
+        else:
+            s.set_proxy(ptype, proxy.ip, proxy.port)
+            
+        s.settimeout(10)
+        # Testing connection to Google DNS as a basic connectivity check
+        s.connect(("8.8.8.8", 53))
+        s.close()
+        
+        proxy.status = "active"
+        proxy.last_checked = datetime.utcnow()
+        db.commit()
+        return {"status": "success", "message": "Proxy is operational"}
+    except Exception as e:
+        proxy.status = "inactive"
+        proxy.last_checked = datetime.utcnow()
+        db.commit()
+        return {"status": "error", "message": str(e)}

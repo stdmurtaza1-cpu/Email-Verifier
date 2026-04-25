@@ -37,7 +37,9 @@ const DOM = {
     workersBody: document.getElementById('admin-workers-body'),
     ipsBody: document.getElementById('admin-ips-body'),
     addIpModal: document.getElementById('add-ip-modal-overlay'),
-    assignWorkerModal: document.getElementById('assign-worker-modal-overlay')
+    assignWorkerModal: document.getElementById('assign-worker-modal-overlay'),
+    externalProxiesBody: document.getElementById('admin-external-proxies-body'),
+    addExternalProxyModal: document.getElementById('add-external-proxy-modal-overlay')
 };
 
 let adminToken = localStorage.getItem('admin_token');
@@ -148,37 +150,56 @@ function startStatsPolling() {
 }
 
 async function loadDashboard() {
+    console.log("Initializing Admin Dashboard...");
     try {
         await fetchStats();
         
-        const usersRes = await fetch('/api/admin/users', { headers: getHeaders() });
-        if (!usersRes.ok) throw new Error("Failed to fetch users");
-        const usersData = await usersRes.json();
-        allUsers = usersData.users || [];
-        renderUsersTable(allUsers);
+        try {
+            const usersRes = await fetch('/api/admin/users', { headers: getHeaders() });
+            if (usersRes.ok) {
+                const usersData = await usersRes.json();
+                allUsers = usersData.users || [];
+                renderUsersTable(allUsers);
+            }
+        } catch(e) { console.error("Users fetch failed", e); }
         
-        const keysRes = await fetch('/api/admin/keys', { headers: getHeaders() });
-        if (!keysRes.ok) throw new Error("Failed to fetch keys");
-        const keysData = await keysRes.json();
-        allKeys = keysData.keys || [];
-        renderKeysTable(allKeys);
+        try {
+            const keysRes = await fetch('/api/admin/keys', { headers: getHeaders() });
+            if (keysRes.ok) {
+                const keysData = await keysRes.json();
+                allKeys = keysData.keys || [];
+                renderKeysTable(allKeys);
+            }
+        } catch(e) { console.error("Keys fetch failed", e); }
         
-        const workersRes = await fetch('/api/admin/workers', { headers: getHeaders() });
-        let activeWorkersData = [];
-        if(workersRes.ok) {
-            const wData = await workersRes.json();
-            activeWorkersData = wData.workers || [];
-            renderWorkersTable(activeWorkersData);
-        }
+        try {
+            const workersRes = await fetch('/api/admin/workers', { headers: getHeaders() });
+            let activeWorkersData = [];
+            if(workersRes.ok) {
+                const wData = await workersRes.json();
+                activeWorkersData = wData.workers || [];
+                renderWorkersTable(activeWorkersData);
+            }
 
-        const ipsRes = await fetch('/api/admin/ips', { headers: getHeaders() });
-        if(ipsRes.ok) {
-            const iData = await ipsRes.json();
-            renderIpsTable(iData.ips || [], activeWorkersData);
-        }
+            const ipsRes = await fetch('/api/admin/ips', { headers: getHeaders() });
+            if(ipsRes.ok) {
+                const iData = await ipsRes.json();
+                renderIpsTable(iData.ips || [], activeWorkersData);
+            }
+        } catch(e) { console.error("Workers/IPs fetch failed", e); }
+
+        try {
+            const proxiesRes = await fetch('/api/admin/proxies', { headers: getHeaders() });
+            if(proxiesRes.ok) {
+                const pData = await proxiesRes.json();
+                console.log("Loaded proxies:", pData.proxies?.length);
+                renderExternalProxiesTable(pData.proxies || []);
+            }
+        } catch(e) { console.error("External proxies fetch failed", e); }
         
         showDash();
     } catch (err) {
+        console.error("Critical Dashboard Error:", err);
         localStorage.removeItem('admin_token');
         adminToken = null;
         showAuth();
@@ -523,75 +544,113 @@ window.adminSubmitAssignWorker = async function() {
     } catch(e) { alert(e.message); }
 };
 
-// ==========================================
-// PAGES CMS / QUILL EDITOR LOGIC
-// ==========================================
-let quillEditor = null;
-
-function initQuill() {
-    if(quillEditor) return;
-    
-    quillEditor = new Quill('#editor-container', {
-        theme: 'snow',
-        modules: {
-            toolbar: {
-                container: [
-                    [{ header: [1, 2, 3, 4, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ list: 'ordered' }, { list: 'bullet' }],
-                    [{ color: [] }, { background: [] }],
-                    ['link', 'image', 'video'],
-                    ['clean']
-                ],
-                handlers: {
-                    image: imageHandler
-                }
-            }
-        }
+// External Proxy Handlers
+function renderExternalProxiesTable(proxiesArray) {
+    DOM.externalProxiesBody.innerHTML = '';
+    proxiesArray.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+        
+        const authInfo = p.username ? `${esc(p.username)}:***` : 'None';
+        const statColor = p.status === 'active' ? 'var(--success)' : 'var(--danger)';
+        const lastChecked = p.last_checked ? new Date(p.last_checked).toLocaleString() : 'Never';
+        
+        tr.innerHTML = `
+            <td style="padding: 1rem; font-weight: bold; font-family: monospace;">${esc(p.ip)}:${p.port}</td>
+            <td style="padding: 1rem;"><span class="badge" style="background:rgba(255,255,255,0.1); color:white;">${esc(p.type)}</span></td>
+            <td style="padding: 1rem; color: var(--text-muted);">${authInfo}</td>
+            <td style="padding: 1rem; color: ${statColor}; font-weight: bold; text-transform: uppercase;">${esc(p.status)}</td>
+            <td style="padding: 1rem; font-size: 0.85rem; color: var(--text-muted);">${lastChecked}</td>
+            <td style="padding: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--secondary); color: #000;" onclick="testExternalProxy(${p.id})">Test</button>
+                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: ${p.status === 'active' ? 'var(--warning)' : 'var(--success)'}; color: #000;" onclick="toggleExternalProxyStatus(${p.id}, '${p.status === 'active' ? 'inactive' : 'active'}')">
+                    ${p.status === 'active' ? 'Deactivate' : 'Activate'}
+                </button>
+                <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--danger); color: white;" onclick="deleteExternalProxy(${p.id})">Delete</button>
+            </td>
+        `;
+        DOM.externalProxiesBody.appendChild(tr);
     });
 }
 
-// Custom Image Upload Handler for Quill
-function imageHandler() {
-    const input = document.createElement('input');
-    input.setAttribute('type', 'file');
-    input.setAttribute('accept', 'image/*');
-    input.click();
+window.openAddExternalProxyModal = function() {
+    DOM.addExternalProxyModal.classList.remove('hidden');
+};
 
-    input.onchange = async () => {
-        const file = input.files[0];
-        if (file) {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            try {
-                // Assuming admin headers if required, but FormData boundary handles it automatically when not explicitly setting Content-Type
-                const res = await fetch('/api/admin/upload-image', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${adminToken}` },
-                    body: formData
-                });
-                if (!res.ok) throw new Error("Image upload failed");
-                const data = await res.json();
-                
-                const range = quillEditor.getSelection();
-                quillEditor.insertEmbed(range.index, 'image', data.url);
-            } catch (err) {
-                alert("Upload failed: " + err.message);
-            }
+window.adminSubmitNewExternalProxy = async function() {
+    const ip = document.getElementById('add-proxy-ip').value;
+    const port = parseInt(document.getElementById('add-proxy-port').value);
+    const username = document.getElementById('add-proxy-user').value || null;
+    const password = document.getElementById('add-proxy-pass').value || null;
+    const type = document.getElementById('add-proxy-type').value;
+    
+    if(!ip || !port) { alert("IP and Port are required."); return; }
+    
+    try {
+        const res = await fetch('/api/admin/proxies', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ ip, port, username, password, type })
+        });
+        if(!res.ok) throw new Error("Failed to add proxy.");
+        alert("Proxy added successfully.");
+        DOM.addExternalProxyModal.classList.add('hidden');
+        loadDashboard();
+    } catch(e) { alert(e.message); }
+};
+
+window.toggleExternalProxyStatus = async function(id, status) {
+    try {
+        const res = await fetch(`/api/admin/proxies/${id}/toggle?status=${status}`, { 
+            method: 'PATCH', 
+            headers: getHeaders() 
+        });
+        if(!res.ok) throw new Error("Failed to update proxy status.");
+        loadDashboard();
+    } catch(e) { alert(e.message); }
+};
+
+window.deleteExternalProxy = async function(id) {
+    if(!confirm("Are you sure you want to delete this proxy?")) return;
+    try {
+        const res = await fetch(`/api/admin/proxies/${id}`, { 
+            method: 'DELETE', 
+            headers: getHeaders() 
+        });
+        if(!res.ok) throw new Error("Failed to delete proxy.");
+        loadDashboard();
+    } catch(e) { alert(e.message); }
+};
+
+window.testExternalProxy = async function(id) {
+    alert("Testing proxy connection... please wait.");
+    try {
+        const res = await fetch(`/api/admin/proxies/${id}/test`, { 
+            method: 'POST', 
+            headers: getHeaders() 
+        });
+        const data = await res.json();
+        if(data.status === 'success') {
+            alert("Proxy is working perfectly!");
+        } else {
+            alert("Proxy Test Failed: " + data.message);
         }
-    };
-}
+        loadDashboard();
+    } catch(e) { alert("Test failed: " + e.message); }
+};
+
+// ==========================================
+// PAGES CMS / SIMPLE TEXTAREA LOGIC
+// ==========================================
 
 window.adminLoadPageContent = async function() {
-    initQuill();
     const slug = document.getElementById('admin-page-selector').value;
     try {
         const res = await fetch(`/api/admin/page/${slug}`, { headers: getHeaders() });
         const data = await res.json();
         const content = data.html_content || '';
-        // Set the content safely via Quill's internal HTML setter
-        quillEditor.clipboard.dangerouslyPasteHTML(content);
+        const editor = document.getElementById('page-editor');
+        if(editor) editor.value = content;
     } catch(e) {
         alert("Failed to load page content.");
     }
@@ -599,7 +658,8 @@ window.adminLoadPageContent = async function() {
 
 window.adminSavePageContent = async function() {
     const slug = document.getElementById('admin-page-selector').value;
-    const htmlContent = quillEditor.root.innerHTML;
+    const editor = document.getElementById('page-editor');
+    const htmlContent = editor ? editor.value : '';
     
     document.getElementById('admin-save-page-txt').classList.add('hidden');
     document.getElementById('admin-save-page-loader').classList.remove('hidden');
@@ -611,7 +671,7 @@ window.adminSavePageContent = async function() {
             body: JSON.stringify({ html_content: htmlContent })
         });
         if(!res.ok) throw new Error("Save failed");
-        alert(`Page '${slug}' updated successfully! Note: You may need to refresh the public site to see changes.`);
+        alert(`Page '${slug}' updated successfully!`);
     } catch (e) {
         alert("Failed to save content.");
     } finally {
@@ -620,12 +680,11 @@ window.adminSavePageContent = async function() {
     }
 };
 
-// Hook into navigation to lazy load quill if they click Pages tab
+// Hook into navigation
 DOM.navBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
-        if(e.target.dataset.target === 'panel-pages') {
-            initQuill();
-            adminLoadPageContent(); // Auto load "home" which is default
+        if(btn.dataset.target === 'panel-pages') {
+            adminLoadPageContent();
         }
     });
 });

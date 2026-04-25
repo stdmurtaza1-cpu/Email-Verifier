@@ -9,9 +9,11 @@ import asyncio
 import random
 import time
 import logging
+import socks
+import socket
 from typing import List, Tuple, Optional, Dict, Any
 from functools import wraps
-from database import SessionLocal, SmtpIp
+from database import SessionLocal, SmtpIp, Proxy
 from core.worker_registry import get_worker_name
 import math
 
@@ -232,9 +234,51 @@ async def check_dmarc(domain: str) -> bool:
         return False
     return await loop.run_in_executor(None, _get)
 
-async def _attempt_smtp_connection(target: str, port: int, mode: str, timeout_val: int, source_ip: Optional[str] = None):
+async def _attempt_smtp_connection(target: str, port: int, mode: str, timeout_val: int, source_ip: Optional[str] = None, proxy: Optional[Proxy] = None):
     loop = asyncio.get_running_loop()
     def _connect():
+        # If proxy is provided, use PySocks to tunnel the connection
+        if proxy:
+            try:
+                # Store original socket to restore later if needed (though usually we use socks.socksocket)
+                # But here we set it per-connection if possible, or use the global setter as requested by user
+                # WARNING: Global setter socks.set_default_proxy is NOT thread-safe/async-safe if multiple 
+                # connections use different proxies. However, the user explicitly asked for this pattern.
+                # To be safer, we use a local socksocket.
+                
+                s = socks.socksocket()
+                proxy_type = socks.SOCKS5 if proxy.type.upper() == "SOCKS5" else socks.HTTP
+                if proxy.username and proxy.password:
+                    s.set_proxy(proxy_type, proxy.ip, proxy.port, username=proxy.username, password=proxy.password)
+                else:
+                    s.set_proxy(proxy_type, proxy.ip, proxy.port)
+                
+                s.settimeout(timeout_val)
+                
+                # We need to manually handle the connection for smtplib to use our socksocket
+                if mode == 'ssl':
+                    context = ssl.create_default_context()
+                    context.check_hostname = False
+                    context.verify_mode = ssl.CERT_NONE
+                    
+                    # smtplib.SMTP_SSL doesn't easily take an existing socket in constructor in some versions,
+                    # but we can wrap the socket after connection.
+                    s.connect((target, port))
+                    sslsock = context.wrap_socket(s, server_hostname=target)
+                    smtp = smtplib.SMTP_SSL(timeout=timeout_val, context=context)
+                    smtp.sock = sslsock
+                    smtp.file = sslsock.makefile('rb')
+                    return smtp
+                else:
+                    s.connect((target, port))
+                    smtp = smtplib.SMTP(timeout=timeout_val)
+                    smtp.sock = s
+                    smtp.file = s.makefile('rb')
+                    return smtp
+            except Exception as e:
+                logger.debug(f"Proxy connection failed: {str(e)}")
+                raise e
+
         # If source_ip is configured to a valid string, map it. OS default is used if None.
         src_addr = (source_ip, 0) if source_ip and source_ip not in ["IP1", "IP2", "IP3"] else None
         
@@ -429,11 +473,59 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
     # ── Minimal jitter to appear more human-like without killing speed ─────────
     await asyncio.sleep(random.uniform(0.05, 0.2))
 
+    # ── Fetch Active External Proxies ─────────────────────────────────────────
+    external_proxies = []
+    try:
+        db = SessionLocal()
+        external_proxies = db.query(Proxy).filter(Proxy.status == "active").all()
+        random.shuffle(external_proxies)
+        db.close()
+    except Exception as e:
+        logger.debug(f"Failed to fetch external proxies: {e}")
+
     for mx_host in mx_hosts[:2]:
         logger.debug(f"Resolving MX host {mx_host}...")
         target = await resolve_host(mx_host)
         
         for port, mode in ports:
+            # ── 1. Try External Proxies First (if available) ─────────────────
+            if external_proxies:
+                for proxy in external_proxies[:3]: # Try up to 3 proxies per MX/Port
+                    smtp = None
+                    try:
+                        logger.debug(f"Connecting to {target}:{port} via PROXY {proxy.ip}:{proxy.port} (mode: {mode})")
+                        smtp = await _attempt_smtp_connection(target, port, mode, 10, proxy=proxy)
+                        
+                        await _smtp_handshake(smtp, mode)
+                        code, msg, fake_code = await _smtp_verify_email(smtp, domain, email)
+                        msg_str = str(msg).lower()
+                        
+                        logger.debug(f"PROXY SMTP response: code={code}, msg={msg_str}")
+                        
+                        if code == 250:
+                            if fake_code == 250:
+                                await log_verifier_result(email, domain, f"PROXY:{proxy.ip}", target, port, "CATCH_ALL")
+                                return "CATCH_ALL", "Server accepts all emails for this domain"
+                            await log_verifier_result(email, domain, f"PROXY:{proxy.ip}", target, port, "VALID")
+                            return "VALID", "SMTP server confirmed email existence"
+
+                        if code in [550, 551, 552, 553, 554]:
+                            if any(w in msg_str for w in ['spam', 'block', 'banned', 'blacklisted', 'not allowed', 'rejected', 'policy', 'denied']):
+                                continue # Try next proxy
+                            await log_verifier_result(email, domain, f"PROXY:{proxy.ip}", target, port, "INVALID", msg_str)
+                            return "INVALID", f"SMTP server rejected email: {msg_str}"
+
+                    except Exception as e:
+                        logger.debug(f"Proxy attempt failed: {e}")
+                        continue
+                    finally:
+                        if smtp:
+                            try:
+                                loop = asyncio.get_running_loop()
+                                await loop.run_in_executor(None, smtp.quit)
+                            except: pass
+
+            # ── 2. Fallback to Local IP Rotation (existing behavior) ──────────
             # Multi-IP rotation: Weighted shuffle strictly bound to dedicated Worker IPs
             worker_id = get_worker_name()
             active_redis_ips = await cache_hgetall(f"worker:{worker_id}:ips")

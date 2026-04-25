@@ -140,6 +140,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_csp_header(request: Request, call_next):
+    response = await call_next(request)
+    # Apply permissive CSP to Admin Panel to prevent blocking of Chart.js and other assets
+    if "/admin-panel" in request.url.path or request.url.path.endswith(".js") or request.url.path.endswith(".css"):
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self' * 'unsafe-inline' 'unsafe-eval'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' https:;"
+        )
+    return response
+
 app.include_router(api_router, prefix="/api")
 
 @app.exception_handler(Exception)

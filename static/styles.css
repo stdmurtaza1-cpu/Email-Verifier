@@ -604,3 +604,30 @@ body.light-theme .btn-outline[style*="color:white"] {
 .faq-item.open .faq-arrow {
     transform: rotate(180deg);
 }
+
+
+/* Universal Light Theme Input Fix */
+body.light-theme input,
+body.light-theme select,
+body.light-theme textarea,
+body.light-theme .input-large,
+body.light-theme .input-modern {
+    background-color: #ffffff !important;
+    color: #1a1a2e !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 8px !important;
+}
+
+body.light-theme input::placeholder,
+body.light-theme textarea::placeholder {
+    color: #9ca3af !important;
+}
+
+/* Modal specific light theme fix */
+body.light-theme .modal-card input,
+body.light-theme .modal-card select,
+body.light-theme .modal-card textarea {
+    background-color: #ffffff !important;
+    color: #1a1a2e !important;
+    border: 1px solid #d1d5db !important;
+}
