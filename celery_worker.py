@@ -80,6 +80,7 @@ def _build_email_result_obj(r: dict, user_id: int, file_id: Optional[int]):
         is_disposable=bool(r.get("disposable", False)),
         mx_found=bool(r.get("mx", False)),
         smtp_response=None,
+        used_proxy=r.get("used_proxy"),
         verified_at=datetime.utcnow(),
     )
 

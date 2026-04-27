@@ -63,10 +63,16 @@ body.light-theme .nav-link:hover, body.light-theme .nav-link.active { color: var
 body.light-theme .result-box { background: rgba(255,255,255,0.8); }
 body.light-theme .modal-card { background: #fff; }
 body.light-theme .price-card { background: rgba(255,255,255,0.8); }
-body.light-theme thead { background: rgba(240,244,248,0.95) !important; }
+body.light-theme thead { background: #f1f5f9 !important; color: #334155 !important; }
+body.light-theme th { color: #334155 !important; font-weight: 700 !important; }
+body.light-theme td { color: #1e293b !important; }
+body.light-theme tr { border-bottom: 1px solid #e2e8f0 !important; }
+body.light-theme .card { background: #ffffff; border-color: #e2e8f0; }
 body.light-theme .logo { color: var(--text-main); }
-body.light-theme .btn-outline { color: var(--text-main); border-color: rgba(0,0,0,0.25); }
+body.light-theme .btn-outline { color: #475569; border-color: #cbd5e1; }
 body.light-theme .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+body.light-theme .text-muted { color: #64748b !important; }
+body.light-theme .badge { background: rgba(0,0,0,0.05); color: #475569; border-color: #cbd5e1; }
 
 * {
     box-sizing: border-box;
@@ -630,4 +636,22 @@ body.light-theme .modal-card textarea {
     background-color: #ffffff !important;
     color: #1a1a2e !important;
     border: 1px solid #d1d5db !important;
+}
+body.light-theme .dash-nav-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-main); }
+body.light-theme .dash-nav-btn.active { background: rgba(0, 242, 96, 0.15); color: var(--primary); }
+body.light-theme .close-modal:hover { color: var(--primary); }
+body.light-theme .dash-sidebar { background: #ffffff; border-color: #e2e8f0; }
+body.light-theme .dash-content { background: #f8fafc; }
+body.light-theme .dash-tab h2 { color: #1e293b; }
+body.light-theme .glass { background: #ffffff; border-color: #e2e8f0; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+body.light-theme .input-modern { background: #ffffff; color: #1e293b; border-color: #cbd5e1; }
+body.light-theme .input-modern:focus { border-color: var(--primary); }
+body.light-theme .sidebar-link { color: #475569 !important; }
+body.light-theme .sidebar-link.active { color: var(--primary) !important; background: rgba(0, 242, 96, 0.1) !important; }
+
+/* Force light theme on certain elements */
+.light-theme input, .light-theme textarea, .light-theme select {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e1 !important;
 }

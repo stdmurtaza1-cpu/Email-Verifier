@@ -39,7 +39,8 @@ const DOM = {
     addIpModal: document.getElementById('add-ip-modal-overlay'),
     assignWorkerModal: document.getElementById('assign-worker-modal-overlay'),
     externalProxiesBody: document.getElementById('admin-external-proxies-body'),
-    addExternalProxyModal: document.getElementById('add-external-proxy-modal-overlay')
+    addExternalProxyModal: document.getElementById('add-external-proxy-modal-overlay'),
+    bulkExternalProxyModal: document.getElementById('bulk-proxy-modal-overlay')
 };
 
 let adminToken = localStorage.getItem('admin_token');
@@ -552,15 +553,22 @@ function renderExternalProxiesTable(proxiesArray) {
         tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
         
         const authInfo = p.username ? `${esc(p.username)}:***` : 'None';
-        const statColor = p.status === 'active' ? 'var(--success)' : 'var(--danger)';
-        const lastChecked = p.last_checked ? new Date(p.last_checked).toLocaleString() : 'Never';
+        const statColor = p.status === 'active' ? 'var(--success)' : (p.status === 'blocked' ? 'var(--danger)' : 'var(--warning)');
+        
+        const healthColor = p.health_score > 70 ? 'var(--success)' : (p.health_score > 40 ? 'var(--warning)' : 'var(--danger)');
+        const lastError = p.last_error ? p.last_error : 'None';
         
         tr.innerHTML = `
             <td style="padding: 1rem; font-weight: bold; font-family: monospace;">${esc(p.ip)}:${p.port}</td>
             <td style="padding: 1rem;"><span class="badge" style="background:rgba(255,255,255,0.1); color:white;">${esc(p.type)}</span></td>
-            <td style="padding: 1rem; color: var(--text-muted);">${authInfo}</td>
-            <td style="padding: 1rem; color: ${statColor}; font-weight: bold; text-transform: uppercase;">${esc(p.status)}</td>
-            <td style="padding: 1rem; font-size: 0.85rem; color: var(--text-muted);">${lastChecked}</td>
+            <td style="padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">${authInfo}</td>
+            <td style="padding: 1rem; font-weight: bold; color: ${healthColor};">${Number(p.health_score) || 0}%</td>
+            <td style="padding: 1rem; font-size: 0.85rem;">
+                <span style="color:var(--success)">S: ${p.success_count || 0}</span> / 
+                <span style="color:var(--danger)">F: ${p.failure_count || 0}</span>
+            </td>
+            <td style="padding: 1rem; color: ${statColor}; font-weight: bold; text-transform: uppercase; font-size: 0.85rem;">${esc(p.status)}</td>
+            <td style="padding: 1rem; font-size: 0.75rem; color: var(--text-muted); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${esc(lastError)}">${esc(lastError)}</td>
             <td style="padding: 1rem; display: flex; gap: 0.5rem;">
                 <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--secondary); color: #000;" onclick="testExternalProxy(${p.id})">Test</button>
                 <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: ${p.status === 'active' ? 'var(--warning)' : 'var(--success)'}; color: #000;" onclick="toggleExternalProxyStatus(${p.id}, '${p.status === 'active' ? 'inactive' : 'active'}')">
@@ -597,6 +605,42 @@ window.adminSubmitNewExternalProxy = async function() {
         DOM.addExternalProxyModal.classList.add('hidden');
         loadDashboard();
     } catch(e) { alert(e.message); }
+};
+
+window.openBulkExternalProxyModal = function() {
+    DOM.bulkExternalProxyModal.classList.remove('hidden');
+};
+
+window.adminSubmitBulkExternalProxies = async function() {
+    const raw = document.getElementById('bulk-proxies-input').value;
+    const type = document.getElementById('bulk-proxy-type').value;
+    const btnText = document.getElementById('bulk-proxy-btn-text');
+    const loader = document.getElementById('bulk-proxy-loader');
+    
+    if(!raw.trim()) return;
+    
+    btnText.classList.add('hidden');
+    loader.classList.remove('hidden');
+    
+    try {
+        const res = await fetch('/api/admin/proxies/bulk', {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ proxies_raw: raw, type: type })
+        });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.detail || "Bulk import failed.");
+        
+        alert(data.message);
+        DOM.bulkExternalProxyModal.classList.add('hidden');
+        document.getElementById('bulk-proxies-input').value = '';
+        loadDashboard();
+    } catch(e) {
+        alert(e.message);
+    } finally {
+        btnText.classList.remove('hidden');
+        loader.classList.add('hidden');
+    }
 };
 
 window.toggleExternalProxyStatus = async function(id, status) {

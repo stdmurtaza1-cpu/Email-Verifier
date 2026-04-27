@@ -392,6 +392,37 @@ async def track_ip_success(ip_address: str):
     except Exception as e:
         pass
 
+async def track_proxy_success(proxy_id: int):
+    loop = asyncio.get_running_loop()
+    def _update():
+        db = SessionLocal()
+        try:
+            p = db.query(Proxy).filter(Proxy.id == proxy_id).first()
+            if p:
+                p.success_count += 1
+                p.health_score = min(100, p.health_score + 1)
+                db.commit()
+        finally:
+            db.close()
+    await loop.run_in_executor(None, _update)
+
+async def track_proxy_failure(proxy_id: int, error_msg: str, is_block: bool = False):
+    loop = asyncio.get_running_loop()
+    def _update():
+        db = SessionLocal()
+        try:
+            p = db.query(Proxy).filter(Proxy.id == proxy_id).first()
+            if p:
+                p.failure_count += 1
+                p.health_score = max(0, p.health_score - 10)
+                p.last_error = error_msg[:250] if error_msg else "Unknown"
+                if is_block or p.health_score <= 20:
+                    p.status = "blocked" if is_block else "cooldown"
+                db.commit()
+        finally:
+            db.close()
+    await loop.run_in_executor(None, _update)
+
 async def log_verifier_result(email: str, domain: str, ip: str, target: str, port: int, result: str, details: str = ""):
     worker_id = get_worker_name()
     if not ip:
@@ -440,7 +471,7 @@ async def _check_smtp_rate_limit(domain: str) -> bool:
         return True   # fail open — never hard-block due to Redis issues
 
 
-async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
+async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str, Optional[str]]:
     domain = email.split("@")[1]
     
     # --- Worker-level basic traffic limiting ---
@@ -458,7 +489,7 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
 
     # ── Per-domain rate-limit guard ───────────────────────────────────────────
     if not await _check_smtp_rate_limit(domain):
-        return "RATE_LIMITED", f"Too many SMTP requests to {domain} this minute. Try again shortly."
+        return "RATE_LIMITED", f"Too many SMTP requests to {domain} this minute. Try again shortly.", None
 
     # Smarter port order: prioritize port 25 for MX servers
     ports = [
@@ -504,19 +535,26 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
                         
                         if code == 250:
                             if fake_code == 250:
+                                await track_proxy_success(proxy.id)
                                 await log_verifier_result(email, domain, f"PROXY:{proxy.ip}", target, port, "CATCH_ALL")
-                                return "CATCH_ALL", "Server accepts all emails for this domain"
+                                return "CATCH_ALL", "Server accepts all emails for this domain", proxy.ip
+                            await track_proxy_success(proxy.id)
                             await log_verifier_result(email, domain, f"PROXY:{proxy.ip}", target, port, "VALID")
-                            return "VALID", "SMTP server confirmed email existence"
+                            return "VALID", "SMTP server confirmed email existence", proxy.ip
 
                         if code in [550, 551, 552, 553, 554]:
-                            if any(w in msg_str for w in ['spam', 'block', 'banned', 'blacklisted', 'not allowed', 'rejected', 'policy', 'denied']):
+                            is_block = any(w in msg_str for w in ['spam', 'block', 'banned', 'blacklisted', 'not allowed', 'rejected', 'policy', 'denied'])
+                            if is_block:
+                                await track_proxy_failure(proxy.id, msg_str, is_block=True)
                                 continue # Try next proxy
+                            
+                            await track_proxy_success(proxy.id) # Reached target but email doesn't exist
                             await log_verifier_result(email, domain, f"PROXY:{proxy.ip}", target, port, "INVALID", msg_str)
-                            return "INVALID", f"SMTP server rejected email: {msg_str}"
+                            return "INVALID", f"SMTP server rejected email: {msg_str}", proxy.ip
 
                     except Exception as e:
                         logger.debug(f"Proxy attempt failed: {e}")
+                        await track_proxy_failure(proxy.id, str(e))
                         continue
                     finally:
                         if smtp:
@@ -600,11 +638,11 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
                         if fake_code == 250:
                             await track_ip_success(source_ip)
                             await log_verifier_result(email, domain, source_ip, target, port, "CATCH_ALL")
-                            return "CATCH_ALL", "Server accepts all emails for this domain"
+                            return "CATCH_ALL", "Server accepts all emails for this domain", source_ip
                         
                         await track_ip_success(source_ip)
                         await log_verifier_result(email, domain, source_ip, target, port, "VALID")
-                        return "VALID", "SMTP server confirmed email existence"
+                        return "VALID", "SMTP server confirmed email existence", source_ip
 
                     if code in [550, 551, 552, 553, 554]:
                         if any(w in msg_str for w in ['spam', 'block', 'banned', 'blacklisted', 'not allowed', 'rejected', 'policy', 'denied']):
@@ -616,12 +654,12 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
                         
                         await track_ip_success(source_ip) # User issue, IP handshake successful
                         await log_verifier_result(email, domain, source_ip, target, port, "INVALID", msg_str)
-                        return "INVALID", f"SMTP server rejected email: {msg_str}"
+                        return "INVALID", f"SMTP server rejected email: {msg_str}", source_ip
 
                     if code in [450, 451, 452]:
                         await track_ip_success(source_ip) # IP reached target, greylisting is standard
                         await log_verifier_result(email, domain, source_ip, target, port, "GREYLISTED", msg_str)
-                        return "GREYLISTED", f"Temporary rejection (Greylisting): {msg_str}"
+                        return "GREYLISTED", f"Temporary rejection (Greylisting): {msg_str}", source_ip
 
                     if code in [421, 454, 503, 521, 523] or (400 <= code < 500):
                         await track_ip_failure(source_ip, domain)
@@ -667,9 +705,9 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str]:
             # Stop port iteration if we actually established an SMTP communication 
             # and received a server response that isn't definitive valid/invalid.
             if last_status in ["GREYLISTED", "UNVERIFIABLE"] and "error" not in details.lower():
-                return last_status, details
+                return last_status, details, source_ip
 
-    return last_status, details
+    return last_status, details, None
 
 def calculate_quality_score(email: str, domain: str, has_mx: bool = False, has_spf: bool = False, has_dmarc: bool = False, is_role: bool = False, is_disposable: bool = False) -> int:
     if is_disposable:
@@ -838,10 +876,11 @@ async def verify_email(email: str) -> Dict[str, Any]:
     
     try:
         logger.debug(f"Initiating SMTP checks for {email}")
-        smtp_status, smtp_details = await asyncio.wait_for(
+        smtp_status, smtp_details, used_proxy = await asyncio.wait_for(
             smtp_verify(email, mx_hosts),
             timeout=12.0
         )
+        result["used_proxy"] = used_proxy
     except asyncio.TimeoutError:
         logger.debug(f"Overall SMTP verification timed out for {email}")
         smtp_status = "TIMEOUT"

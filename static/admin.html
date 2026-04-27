@@ -147,7 +147,10 @@
             <div id="panel-external-proxies" class="admin-panel hidden">
                 <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                     <h2>External Paid Proxies (SOCKS5/HTTP)</h2>
-                    <button class="btn" style="background: var(--secondary); color: #000; width:auto; padding: 0.6rem 1.2rem; font-weight: bold;" onclick="openAddExternalProxyModal()">+ Add External Proxy</button>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn" style="background: var(--secondary); color: #000; width:auto; padding: 0.6rem 1.2rem; font-weight: bold;" onclick="openAddExternalProxyModal()">+ Add Proxy</button>
+                        <button class="btn" style="background: var(--primary); color: #000; width:auto; padding: 0.6rem 1.2rem; font-weight: bold;" onclick="openBulkExternalProxyModal()">+ Bulk Add</button>
+                    </div>
                 </div>
                 
                 <div class="card glass">
@@ -158,8 +161,10 @@
                                     <th style="padding: 1rem;">Proxy (IP:Port)</th>
                                     <th style="padding: 1rem;">Type</th>
                                     <th style="padding: 1rem;">Auth</th>
+                                    <th style="padding: 1rem;">Health</th>
+                                    <th style="padding: 1rem;">Stats (S/F)</th>
                                     <th style="padding: 1rem;">Status</th>
-                                    <th style="padding: 1rem;">Last Checked</th>
+                                    <th style="padding: 1rem;">Last Error</th>
                                     <th style="padding: 1rem;">Actions</th>
                                 </tr>
                             </thead>
@@ -364,6 +369,26 @@
                     <option value="HTTP">HTTP</option>
                 </select>
                 <button class="btn" style="background: var(--secondary); color: #000; width: 100%; padding: 0.8rem; font-weight: bold;" onclick="adminSubmitNewExternalProxy()">Securely Register Proxy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BULK ADD EXTERNAL PROXY MODAL -->
+    <div id="bulk-proxy-modal-overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 1000; display: flex; justify-content: center; align-items: center;">
+        <div class="card glass" style="width: 100%; max-width: 500px; position: relative;">
+            <button class="close-user-modal" style="position: absolute; right: 1rem; top: 1rem; background: transparent; border: none; color: white; font-size: 1.5rem; cursor: pointer;" onclick="document.getElementById('bulk-proxy-modal-overlay').classList.add('hidden')">&times;</button>
+            <h2 style="margin-bottom: 1.5rem; color: var(--primary); font-size: 1.3rem;">Bulk Register Proxies</h2>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Enter proxies in format <code>ip:port</code> or <code>ip:port:user:pass</code> (one per line).</p>
+                <textarea id="bulk-proxies-input" placeholder="45.1.2.3:8080&#10;45.1.2.4:8080:user:pass" style="width: 100%; min-height: 200px; padding: 1rem; border-radius: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--border-color); font-family: monospace;"></textarea>
+                <select id="bulk-proxy-type" style="padding: 0.8rem; border-radius: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid var(--border-color);">
+                    <option value="SOCKS5">SOCKS5</option>
+                    <option value="HTTP">HTTP</option>
+                </select>
+                <button class="btn" style="background: var(--primary); color: #000; width: 100%; padding: 0.8rem; font-weight: bold;" onclick="adminSubmitBulkExternalProxies()">
+                    <span id="bulk-proxy-btn-text">Import Proxies</span>
+                    <div class="loader hidden" id="bulk-proxy-loader"></div>
+                </button>
             </div>
         </div>
     </div>

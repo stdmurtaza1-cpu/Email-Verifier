@@ -43,6 +43,10 @@ class AddProxyDTO(BaseModel):
     password: Optional[str] = None
     type: str = "SOCKS5"
 
+class BulkProxyImportDTO(BaseModel):
+    proxies_raw: str
+    type: str = "SOCKS5"
+
 @router.post("/upgrade-plan")
 async def upgrade_user_plan(data: UpgradePlanDTO, db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):
     user = db.query(User).filter(User.email == data.user_email).first()
@@ -420,6 +424,10 @@ async def get_proxies(db: Session = Depends(get_db), current_admin: dict = Depen
             "password": p.password,
             "type": p.type,
             "status": p.status,
+            "health_score": p.health_score,
+            "success_count": p.success_count,
+            "failure_count": p.failure_count,
+            "last_error": p.last_error,
             "last_checked": p.last_checked.isoformat() if p.last_checked else None,
             "created_at": p.created_at.isoformat() if p.created_at else None
         } for p in proxies
@@ -439,6 +447,44 @@ async def add_proxy(data: AddProxyDTO, db: Session = Depends(get_db), current_ad
     db.commit()
     db.refresh(proxy)
     return {"message": "Proxy added successfully", "id": proxy.id}
+
+@router.post("/proxies/bulk")
+async def bulk_add_proxies(data: BulkProxyImportDTO, db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):
+    lines = [l.strip() for l in data.proxies_raw.split("\n") if l.strip()]
+    added = 0
+    errors = 0
+    
+    for line in lines:
+        try:
+            # Expected formats: 
+            # ip:port
+            # ip:port:user:pass
+            parts = line.split(":")
+            if len(parts) < 2:
+                errors += 1
+                continue
+                
+            ip = parts[0]
+            port = int(parts[1])
+            user = parts[2] if len(parts) > 2 else None
+            pwd = parts[3] if len(parts) > 3 else None
+            
+            # Check if exists
+            existing = db.query(Proxy).filter(Proxy.ip == ip, Proxy.port == port).first()
+            if existing:
+                continue
+                
+            proxy = Proxy(
+                ip=ip, port=port, username=user, password=pwd,
+                type=data.type, status="active"
+            )
+            db.add(proxy)
+            added += 1
+        except Exception:
+            errors += 1
+            
+    db.commit()
+    return {"message": f"Bulk import complete. Added {added} proxies.", "errors": errors}
 
 @router.patch("/proxies/{proxy_id}/toggle")
 async def toggle_proxy(proxy_id: int, status: str, db: Session = Depends(get_db), current_admin: dict = Depends(get_current_admin)):

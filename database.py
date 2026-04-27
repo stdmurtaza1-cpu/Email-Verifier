@@ -101,6 +101,7 @@ class EmailResult(Base):
     is_disposable = Column(Boolean, default=False)
     mx_found = Column(Boolean, default=False)
     smtp_response = Column(Integer, nullable=True)   # raw SMTP code when available
+    used_proxy = Column(String, nullable=True)       # The IP/Proxy used for this verification
     verified_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
     user = relationship("User", backref="email_results")
@@ -124,7 +125,11 @@ class Proxy(Base):
     username = Column(String, nullable=True)
     password = Column(String, nullable=True)
     type = Column(String, default="SOCKS5") # SOCKS5, HTTP
-    status = Column(String, default="active") # active, inactive
+    status = Column(String, default="active") # active, inactive, blocked, cooldown
+    health_score = Column(Integer, default=100)
+    success_count = Column(Integer, default=0)
+    failure_count = Column(Integer, default=0)
+    last_error = Column(String, nullable=True)
     last_checked = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
@@ -170,6 +175,11 @@ def _run_safe_migrations():
     from sqlalchemy import text
     migrations = [
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS partner_credits_used_lifetime INTEGER DEFAULT 0",
+        "ALTER TABLE email_results ADD COLUMN IF NOT EXISTS used_proxy VARCHAR",
+        "ALTER TABLE proxies ADD COLUMN IF NOT EXISTS health_score INTEGER DEFAULT 100",
+        "ALTER TABLE proxies ADD COLUMN IF NOT EXISTS success_count INTEGER DEFAULT 0",
+        "ALTER TABLE proxies ADD COLUMN IF NOT EXISTS failure_count INTEGER DEFAULT 0",
+        "ALTER TABLE proxies ADD COLUMN IF NOT EXISTS last_error VARCHAR",
     ]
     with engine.connect() as conn:
         for stmt in migrations:

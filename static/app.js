@@ -644,6 +644,7 @@ if(authSingleBtn) {
                     <span class="badge badge-${data.status.replace(' ', '').toLowerCase()}">${data.status}</span>
                 </div>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; text-align: left;">${data.details}</p>
+                <div style="font-size: 0.75rem; color: var(--secondary); margin-top: 0.3rem; font-family: monospace;">Verified via: ${data.used_proxy || 'Direct IP'}</div>
                 ${blockNote}
             `;
             resBox.classList.remove('hidden');
@@ -800,6 +801,7 @@ window.addRowToTable = function(resultData) {
     tr.innerHTML = `
         <td class="p-2" style="font-size:0.9rem;">${resultData.email}</td>
         <td class="p-2"><span class="${badgeClass}" style="padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${statusLabel}</span></td>
+        <td class="p-2" style="font-size:0.8rem; font-family: monospace; color: var(--secondary);">${resultData.used_proxy || 'Direct'}</td>
         <td class="p-2" style="font-size:0.9rem;">${resultData.score !== undefined ? resultData.score : '-'}</td>
         <td class="p-2" style="font-size:0.9rem;">${syntaxIcon}</td>
         <td class="p-2" style="font-size:0.9rem;">${mxIcon}</td>
