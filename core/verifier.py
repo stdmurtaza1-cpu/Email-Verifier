@@ -3,6 +3,9 @@ import re
 import os
 import dns.resolver
 import smtplib
+import aiosmtplib
+import python_socks
+from python_socks.async_.asyncio import Proxy as AsyncProxy
 import socket
 import ssl
 import asyncio
@@ -235,108 +238,88 @@ async def check_dmarc(domain: str) -> bool:
     return await loop.run_in_executor(None, _get)
 
 async def _attempt_smtp_connection(target: str, port: int, mode: str, timeout_val: int, source_ip: Optional[str] = None, proxy: Optional[Proxy] = None):
-    loop = asyncio.get_running_loop()
-    def _connect():
-        # If proxy is provided, use PySocks to tunnel the connection
-        if proxy:
-            try:
-                # Store original socket to restore later if needed (though usually we use socks.socksocket)
-                # But here we set it per-connection if possible, or use the global setter as requested by user
-                # WARNING: Global setter socks.set_default_proxy is NOT thread-safe/async-safe if multiple 
-                # connections use different proxies. However, the user explicitly asked for this pattern.
-                # To be safer, we use a local socksocket.
-                
-                s = socks.socksocket()
-                proxy_type = socks.SOCKS5 if proxy.type.upper() == "SOCKS5" else socks.HTTP
-                if proxy.username and proxy.password:
-                    s.set_proxy(proxy_type, proxy.ip, proxy.port, username=proxy.username, password=proxy.password)
-                else:
-                    s.set_proxy(proxy_type, proxy.ip, proxy.port)
-                
-                s.settimeout(timeout_val)
-                
-                # We need to manually handle the connection for smtplib to use our socksocket
-                if mode == 'ssl':
-                    context = ssl.create_default_context()
-                    context.check_hostname = False
-                    context.verify_mode = ssl.CERT_NONE
-                    
-                    # smtplib.SMTP_SSL doesn't easily take an existing socket in constructor in some versions,
-                    # but we can wrap the socket after connection.
-                    s.connect((target, port))
-                    sslsock = context.wrap_socket(s, server_hostname=target)
-                    smtp = smtplib.SMTP_SSL(timeout=timeout_val, context=context)
-                    smtp.sock = sslsock
-                    smtp.file = sslsock.makefile('rb')
-                    return smtp
-                else:
-                    s.connect((target, port))
-                    smtp = smtplib.SMTP(timeout=timeout_val)
-                    smtp.sock = s
-                    smtp.file = s.makefile('rb')
-                    return smtp
-            except Exception as e:
-                logger.debug(f"Proxy connection failed: {str(e)}")
-                raise e
-
-        # If source_ip is configured to a valid string, map it. OS default is used if None.
-        src_addr = (source_ip, 0) if source_ip and source_ip not in ["IP1", "IP2", "IP3"] else None
+    use_tls = (mode == 'ssl')
+    
+    tls_context = ssl.create_default_context()
+    tls_context.check_hostname = False
+    tls_context.verify_mode = ssl.CERT_NONE
+    
+    if proxy:
+        try:
+            proxy_type = python_socks.ProxyType.SOCKS5 if proxy.type.upper() == "SOCKS5" else python_socks.ProxyType.HTTP
+            async_proxy = AsyncProxy.create(
+                proxy_type=proxy_type,
+                host=proxy.ip,
+                port=proxy.port,
+                username=proxy.username,
+                password=proxy.password
+            )
+            sock = await async_proxy.connect(target, port, timeout=timeout_val)
+            
+            smtp = aiosmtplib.SMTP(
+                hostname=target,
+                port=port,
+                timeout=timeout_val,
+                use_tls=use_tls,
+                tls_context=tls_context
+            )
+            await smtp.connect(sock=sock)
+            return smtp
+        except Exception as e:
+            logger.debug(f"Proxy connection failed: {str(e)}")
+            raise e
+    else:
+        src_addr = source_ip if source_ip and source_ip not in ["IP1", "IP2", "IP3"] else None
         
-        if mode == 'ssl':
-            context = ssl.create_default_context()
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
-            return smtplib.SMTP_SSL(target, port, timeout=timeout_val, context=context, source_address=src_addr)
-        else:
-            return smtplib.SMTP(target, port, timeout=timeout_val, source_address=src_addr)
-    return await loop.run_in_executor(None, _connect)
+        smtp = aiosmtplib.SMTP(
+            hostname=target,
+            port=port,
+            timeout=timeout_val,
+            use_tls=use_tls,
+            tls_context=tls_context,
+            source_address=src_addr
+        )
+        await smtp.connect()
+        return smtp
 
 async def _smtp_handshake(smtp, mode: str):
-    loop = asyncio.get_running_loop()
-    def _handshake():
-        smtp.ehlo(EHLO_HOST)
-        if mode == 'starttls':
-            try:
-                ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-                smtp.starttls(context=ctx)
-                smtp.ehlo(EHLO_HOST)
-            except Exception as e:
-                logger.debug(f"STARTTLS failed: {str(e)}")
-    await loop.run_in_executor(None, _handshake)
+    await smtp.ehlo(EHLO_HOST)
+    if mode == 'starttls':
+        try:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            await smtp.starttls(tls_context=ctx)
+            await smtp.ehlo(EHLO_HOST)
+        except Exception as e:
+            logger.debug(f"STARTTLS failed: {str(e)}")
 
 async def _smtp_verify_email(smtp, domain: str, email: str) -> Tuple[int, str, int]:
-    loop = asyncio.get_running_loop()
-    def _exchange():
-        try:
-            mc, mm = smtp.mail(MAIL_FROM)
-            if mc not in [250, 251]:
-                return mc, mm, 0
-                
-            c, m = smtp.rcpt(email)
-            if c == 250:
-                # Skip catch-all probe for known free/consumer domains.
-                # These providers (Gmail, Yahoo, AOL, etc.) sometimes return 250
-                # for invalid addresses during rate-limiting / greylisting events,
-                # which would produce a false CATCH_ALL result.
-                if domain.lower() in FREE_EMAIL_DOMAINS:
-                    return c, m, 0
-                fake = f"test{random.randint(10000, 99999)}@{domain}"
-                try:
-                    smtp.rset()
-                    fmc, fmm = smtp.mail(MAIL_FROM)
-                    if fmc in [250, 251]:
-                        fc, _ = smtp.rcpt(fake)
-                    else:
-                        fc = 0
-                except Exception:
+    try:
+        mc, mm = await smtp.mail(MAIL_FROM)
+        if mc not in [250, 251]:
+            return mc, mm, 0
+            
+        c, m = await smtp.rcpt(email)
+        if c == 250:
+            if domain.lower() in FREE_EMAIL_DOMAINS:
+                return c, m, 0
+            fake = f"test{random.randint(10000, 99999)}@{domain}"
+            try:
+                await smtp.rset()
+                fmc, fmm = await smtp.mail(MAIL_FROM)
+                if fmc in [250, 251]:
+                    fc, _ = await smtp.rcpt(fake)
+                else:
                     fc = 0
-                return c, m, fc
-            return c, m, 0
-        except Exception as e:
-            raise e
-    return await loop.run_in_executor(None, _exchange)
+            except Exception:
+                fc = 0
+            return c, m, fc
+        return c, m, 0
+    except aiosmtplib.SMTPResponseException as e:
+        return e.code, e.message, 0
+    except Exception as e:
+        raise e
 
 # ── Dynamic IP Fault Tolerance Tracking ───────────────────────────────────────
 
@@ -447,28 +430,26 @@ async def log_verifier_result(email: str, domain: str, ip: str, target: str, por
         logger.info(f"[VERIFIER_RESULT] email={email} | domain={domain} | ip={ip} | target={target}:{port} | result={result} {details}")
 
 # ── Per-domain SMTP rate limiter ──────────────────────────────────────────────
-SMTP_RATE_LIMIT = int(os.getenv("SMTP_RATE_LIMIT_PER_MIN", "5"))   # requests per domain per minute
+SMTP_RATE_LIMIT_PER_IP = int(os.getenv("SMTP_RATE_LIMIT_PER_MIN", "15"))
 
-async def _check_smtp_rate_limit(domain: str) -> bool:
+async def _check_smtp_rate_limit(domain: str, ip: str) -> bool:
     """
     Returns True (allowed) or False (rate-limited).
-    Uses Redis incr+expire counter keyed per domain per minute window.
-    Uses the shared async Redis pool — no new connections created per call.
-    Falls back to True (allow) if Redis is unavailable.
+    Uses Redis incr+expire counter keyed per domain per IP per minute window.
     """
-    key = f"smtp_rate:{domain}"
+    key = f"smtp_rate:{domain}:{ip}"
     try:
         r = get_redis()
         count = await r.incr(key)
         if count == 1:
-            await r.expire(key, 60)   # start the 60-second window on first hit
-        if count > SMTP_RATE_LIMIT:
-            logger.warning(f"SMTP rate limit reached for {domain} ({count}/{SMTP_RATE_LIMIT} per min)")
+            await r.expire(key, 60)
+        if count > SMTP_RATE_LIMIT_PER_IP:
+            logger.debug(f"SMTP rate limit reached for {domain} on IP {ip} ({count}/{SMTP_RATE_LIMIT_PER_IP} per min)")
             return False
         return True
     except Exception as exc:
         logger.debug(f"Rate-limit Redis unavailable, allowing request: {exc}")
-        return True   # fail open — never hard-block due to Redis issues
+        return True
 
 
 async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str, Optional[str]]:
@@ -486,10 +467,6 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str, Option
             await asyncio.sleep(4) 
     except Exception:
         pass
-
-    # ── Per-domain rate-limit guard ───────────────────────────────────────────
-    if not await _check_smtp_rate_limit(domain):
-        return "RATE_LIMITED", f"Too many SMTP requests to {domain} this minute. Try again shortly.", None
 
     # Smarter port order: prioritize port 25 for MX servers
     ports = [
@@ -522,6 +499,8 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str, Option
             # ── 1. Try External Proxies First (if available) ─────────────────
             if external_proxies:
                 for proxy in external_proxies[:3]: # Try up to 3 proxies per MX/Port
+                    if not await _check_smtp_rate_limit(domain, proxy.ip):
+                        continue
                     smtp = None
                     try:
                         logger.debug(f"Connecting to {target}:{port} via PROXY {proxy.ip}:{proxy.port} (mode: {mode})")
@@ -559,8 +538,7 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str, Option
                     finally:
                         if smtp:
                             try:
-                                loop = asyncio.get_running_loop()
-                                await loop.run_in_executor(None, smtp.quit)
+                                await smtp.quit()
                             except: pass
 
             # ── 2. Fallback to Local IP Rotation (existing behavior) ──────────
@@ -612,8 +590,9 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str, Option
                 available_ips = list(SMTP_IPS) if SMTP_IPS else [None]
                 random.shuffle(available_ips)
             
-            # Use chunks of available IPs. Shorter timeout first, then longer on retry
             for attempt, source_ip in enumerate(available_ips[:3]):
+                if not await _check_smtp_rate_limit(domain, source_ip or "default"):
+                    continue
                 timeout_val = 5 if attempt == 0 else 8
                 
                 if attempt > 0:
@@ -697,8 +676,7 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str, Option
                 finally:
                     if smtp:
                         try:
-                            loop = asyncio.get_running_loop()
-                            await loop.run_in_executor(None, smtp.quit)
+                            await smtp.quit()
                         except:
                             pass
                             

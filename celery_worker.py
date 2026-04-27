@@ -102,13 +102,12 @@ def _flush_to_db(rows: list, batch_size: int = 100):
         db.close()
 
 
-# ── Bulk-job Celery task ──────────────────────────────────────────────────────
+# ── Bulk-job Celery task (COORDINATOR) ──────────────────────────────────────────
 @celery_app.task(
     bind=True,
     name="process_bulk_job",
-    max_retries=0,          # don't auto-retry — jobs can be massive
-    time_limit=7200,        # hard kill after 2 hrs
-    soft_time_limit=6900,   # SoftTimeLimitExceeded raised 5 min before hard kill
+    max_retries=0,
+    time_limit=600,
 )
 def process_bulk_job(
     self,
@@ -118,21 +117,13 @@ def process_bulk_job(
     file_id: Optional[int] = None,
 ):
     """
-    Celery task: verifies a large list of emails, writes a CSV result file,
-    persists every result to email_results, and updates user_files + Redis cache.
-
-    Dispatched by POST /api/bulk-verify-large.
-    Progress tracked in Redis hash  job:{job_id}.
+    Celery task: Coordinates a large list of emails by chunking them and dispatching to chunk_queue.
     """
     _ensure_jobs_dir()
-
     total = len(emails)
-    results_path = os.path.join(JOBS_DIR, f"{job_id}.csv")
+    
+    _cache_update(job_id, {"status": "processing", "processed": 0, "total": total, "chunks_total": (total + BULK_CHUNK_SIZE - 1) // BULK_CHUNK_SIZE, "chunks_completed": 0})
 
-    # Mark as processing
-    _cache_update(job_id, {"status": "processing", "processed": 0, "total": total})
-
-    # Update UserFile status
     try:
         from database import SessionLocal, UserFile
         db = SessionLocal()
@@ -146,19 +137,35 @@ def process_bulk_job(
     except Exception as exc:
         logger.warning(f"Could not update UserFile to processing: {exc}")
 
-    # Removed isolated _run_chunk because we consolidate into a single asyncio.run
+    # Dispatch chunks
+    chunk_index = 0
+    for start in range(0, total, BULK_CHUNK_SIZE):
+        chunk = emails[start : start + BULK_CHUNK_SIZE]
+        process_bulk_chunk.apply_async(
+            args=[job_id, chunk, user_id, file_id, chunk_index, total],
+            queue="chunk_queue"
+        )
+        chunk_index += 1
 
-    def _is_paused(job_id: str) -> bool:
-        """Check if this job has been paused via Redis flag."""
-        try:
-            import redis as _redis
-            r = _redis.from_url(redis_url, decode_responses=True)
-            return r.get(f"job:{job_id}:paused") == "1"
-        except Exception:
-            return False
+    logger.info(f"[{job_id}] Coordinator dispatched {chunk_index} chunks.")
+    return {"job_id": job_id, "total": total, "status": "dispatching"}
 
+@celery_app.task(
+    bind=True,
+    name="process_bulk_chunk",
+    max_retries=3,
+    time_limit=1800,
+)
+def process_bulk_chunk(
+    self,
+    job_id: str,
+    chunk_emails: list,
+    user_id: int,
+    file_id: Optional[int],
+    chunk_index: int,
+    total_emails: int
+):
     def _is_cancelled(job_id: str) -> bool:
-        """Check if this job has been cancelled."""
         try:
             import redis as _redis
             r = _redis.from_url(redis_url, decode_responses=True)
@@ -167,122 +174,80 @@ def process_bulk_job(
         except Exception:
             return False
 
-    async def _run_all() -> None:
+    if _is_cancelled(job_id):
+        logger.info(f"[{job_id}] Chunk {chunk_index} cancelled.")
+        return
+
+    async def _run_chunk():
+        sem = asyncio.Semaphore(BULK_CONCURRENCY)
+        async def bounded(email: str):
+            async with sem:
+                return await verify_email(email)
+
+        results = await asyncio.gather(*[bounded(e) for e in chunk_emails], return_exceptions=True)
+        
+        db_rows = []
+        for r in results:
+            if not isinstance(r, Exception):
+                db_rows.append(_build_email_result_obj(r, user_id, file_id))
+            else:
+                logger.error(f"Error in chunk: {r}")
+                
+        _flush_to_db(db_rows)
+        
+    asyncio.run(_run_chunk())
+
+    # Update Redis progress
+    try:
+        import redis as _redis
+        r = _redis.from_url(redis_url, decode_responses=True)
+        r.hincrby(f"job:{job_id}", "processed", len(chunk_emails))
+        chunks_done = r.hincrby(f"job:{job_id}", "chunks_completed", 1)
+        chunks_total = int(r.hget(f"job:{job_id}", "chunks_total") or 0)
+        
+        if chunks_done >= chunks_total and chunks_total > 0:
+            finalize_bulk_job.apply_async(args=[job_id, file_id, total_emails], queue="coordinator_queue")
+    except Exception as e:
+        logger.error(f"[{job_id}] Redis update failed in chunk: {e}")
+
+@celery_app.task(name="finalize_bulk_job")
+def finalize_bulk_job(job_id: str, file_id: Optional[int], total_emails: int):
+    # We will generate the CSV from the DB here
+    _cache_update(job_id, {"status": "completed", "processed": total_emails})
+    
+    try:
+        from database import SessionLocal, UserFile, EmailResult
+        db = SessionLocal()
         try:
+            # Optionally write CSV here
+            results_path = os.path.join(JOBS_DIR, f"{job_id}.csv")
             with open(results_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow([
                     "email", "status", "quality_score",
                     "syntax", "mx", "smtp", "catch_all",
-                    "disposable", "role", "spf", "dmarc", "details",
+                    "disposable", "role", "details"
                 ])
-
-                processed = 0
-                sem = asyncio.Semaphore(BULK_CONCURRENCY)
-
-                async def bounded(email: str):
-                    async with sem:
-                        return await verify_email(email)
-
-                for start in range(0, total, BULK_CHUNK_SIZE):
-                    # Check for pause: wait until resumed
-                    while _is_paused(job_id):
-                        _cache_update(job_id, {"status": "paused", "processed": processed})
-                        await asyncio.sleep(3)
-                        if _is_cancelled(job_id):
-                            break
-
-                    # Check for cancellation
-                    if _is_cancelled(job_id):
-                        _cache_update(job_id, {"status": "cancelled", "processed": processed})
-                        logger.info(f"[{job_id}] Job cancelled by user.")
-                        return {"job_id": job_id, "total": total, "status": "cancelled"}
-
-                    # Resume status
-                    _cache_update(job_id, {"status": "processing", "processed": processed})
-
-                    chunk = emails[start : start + BULK_CHUNK_SIZE]
-                    results = await asyncio.gather(*[bounded(e) for e in chunk], return_exceptions=True)
-
-                    db_rows = []
-                    for r in results:
-                        if isinstance(r, Exception):
-                            writer.writerow(["", "ERROR", 0, False, False,
-                                             False, False, False, False, False, False, str(r)])
-                        else:
-                            writer.writerow([
-                                r.get("email", ""),
-                                r.get("status", ""),
-                                r.get("quality_score", 0),
-                                r.get("syntax", False),
-                                r.get("mx", False),
-                                r.get("smtp", False),
-                                r.get("catch_all", False),
-                                r.get("disposable", False),
-                                r.get("role", False),
-                                r.get("spf", False),
-                                r.get("dmarc", False),
-                                r.get("details", ""),
-                            ])
-                            db_rows.append(_build_email_result_obj(r, user_id, file_id))
-
-                    # Persist this chunk to DB (sync flush is okay in background worker)
-                    _flush_to_db(db_rows)
-
-                    processed += len(chunk)
-                    _cache_update(job_id, {"status": "processing", "processed": processed})
-                    logger.info(f"[{job_id}] {processed}/{total} processed")
-
-        except Exception as exc:
-            raise exc
-
-    try:
-        # Run the entire processing block in ONE event loop to prevent redis_pool errors
-        # across multiple loop instantiations.
-        loop_result = asyncio.run(_run_all())
-        if loop_result and loop_result.get("status") == "cancelled":
-            return loop_result
-
-
-        # ── Job complete ──────────────────────────────────────────────────────
-        _cache_update(job_id, {"status": "completed", "processed": total})
-
-        try:
-            from database import SessionLocal, UserFile
-            db = SessionLocal()
-            try:
-                uf = db.query(UserFile).filter(UserFile.id == file_id).first() if file_id else None
-                if uf:
-                    uf.status = "completed"
-                    uf.processed_count = total
-                    uf.completed_at = datetime.utcnow()
-                    db.commit()
-            finally:
-                db.close()
-        except Exception as exc:
-            logger.warning(f"Could not update UserFile to completed: {exc}")
-
-        logger.info(f"[{job_id}] Bulk job finished — {total} emails.")
-        return {"job_id": job_id, "total": total, "status": "completed"}
-
+                
+                results = db.query(EmailResult).filter(EmailResult.file_id == file_id).all() if file_id else []
+                for r in results:
+                    writer.writerow([
+                        r.email, r.status, r.score, r.syntax_valid, r.mx_found, 
+                        bool(r.smtp_response), False, r.is_disposable, False, r.smtp_response
+                    ])
+            
+            uf = db.query(UserFile).filter(UserFile.id == file_id).first() if file_id else None
+            if uf:
+                uf.status = "completed"
+                uf.processed_count = total_emails
+                uf.completed_at = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
     except Exception as exc:
-        logger.error(f"[{job_id}] Bulk job FAILED: {exc}", exc_info=True)
-        _cache_update(job_id, {"status": "failed", "error": str(exc)})
-
-        try:
-            from database import SessionLocal, UserFile
-            db = SessionLocal()
-            try:
-                uf = db.query(UserFile).filter(UserFile.id == file_id).first() if file_id else None
-                if uf:
-                    uf.status = "failed"
-                    db.commit()
-            finally:
-                db.close()
-        except Exception:
-            pass
-
-        raise  # let Celery mark task as FAILURE
+        logger.warning(f"Could not finalize UserFile {file_id}: {exc}")
+        
+    logger.info(f"[{job_id}] Bulk job finalized — {total_emails} emails.")
 
 
 # ── Original small-batch tasks (kept intact) ──────────────────────────────────
