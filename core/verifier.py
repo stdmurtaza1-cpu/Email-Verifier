@@ -815,7 +815,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
         
         if not has_mx:
             result["quality_score"] = calculate_quality_score(email=email, domain=domain, has_mx=False, has_spf=spf_exists, has_dmarc=dmarc_exists, is_role=result["role"], is_disposable=result["disposable"])
-            result["status"] = "LIKELY_INVALID" if result["quality_score"] <= 40 else "UNVERIFIED"
+            result["status"] = "REJECTED"
             result["details"] = "No MX or A records found for domain (cached)"
             return result
     else:
@@ -841,7 +841,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
                     'has_mx': False, 'catch_all': False
                 }, ttl=3600)
                 result["quality_score"] = calculate_quality_score(email=email, domain=domain, has_mx=False, has_spf=spf_exists, has_dmarc=dmarc_exists, is_role=result["role"], is_disposable=result["disposable"])
-                result["status"] = "LIKELY_INVALID" if result["quality_score"] <= 40 else "UNVERIFIED"
+                result["status"] = "REJECTED"
                 result["details"] = "No MX or A records found for domain"
                 return result
             mx_hosts = a_records
@@ -915,7 +915,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
             cached['catch_all'] = True
             await cache_set(f"mx:{domain}", cached, ttl=3600)
     elif smtp_status == "INVALID":
-        result["status"] = "LIKELY_INVALID"
+        result["status"] = "REJECTED"
         
         
         result["details"] = smtp_details
@@ -945,7 +945,7 @@ async def verify_email(email: str) -> Dict[str, Any]:
         result["verification_method"] = "heuristic"
         
         if has_mx:
-            result["status"] = "UNVERIFIED"
+            result["status"] = "REJECTED"
             result["smtp"] = False  # DO NOT fake SMTP success
             result["catch_all"] = False
             result["details"] = f"Mail server exists but SMTP connection failed: {smtp_status}. Reason: {smtp_details}"

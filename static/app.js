@@ -666,10 +666,6 @@ if(authSingleBtn) {
             if (rxTable) {
                 rxTable.prepend(h);
             }
-            const rxHistory = document.getElementById('history-verifications-table');
-            if (rxHistory) {
-                rxHistory.prepend(h.cloneNode(true));
-            }
 
         } catch(err) {
             alert(err.message);
