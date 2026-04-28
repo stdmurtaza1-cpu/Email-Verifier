@@ -344,23 +344,23 @@ async def track_ip_failure(ip_address: str, domain: str):
     if not ip_address: return
     try:
         r = get_redis()
-        key = f"ip_fails:{ip_address}"
+        domain_lower = domain.lower()
+        key = f"ip_fails:{domain_lower}:{ip_address}"
         fails = await r.incr(key)
         if fails == 1:
-            await r.expire(key, 3600)  # Cooldown limits reset every hour natively
+            await r.expire(key, 600)  # Cooldown limits reset every 10 mins natively
             
-        domain_lower = domain.lower()
         if "gmail.com" in domain_lower or "googlemail.com" in domain_lower:
-            threshold = 3
+            threshold = 2
         elif "yahoo.com" in domain_lower:
-            threshold = 5
+            threshold = 3
         else:
-            threshold = 7
+            threshold = 5
             
         logger.debug(f"IP {ip_address} logged failure {fails}/{threshold} for domain {domain}")
         if fails >= threshold:
-            logger.warning(f"[MONITOR] EVENT=COOLDOWN_TRIGGERED | ip={ip_address} | msg=Threshold {threshold} exceeded")
-            await mark_ip_cooldown(ip_address)
+            logger.warning(f"[MONITOR] EVENT=DOMAIN_COOLDOWN_TRIGGERED | ip={ip_address} | domain={domain_lower}")
+            await r.setex(f"cooldown:{domain_lower}:{ip_address}", 600, "1")
     except Exception as e:
         logger.error(f"Error tracking IP failure for {ip_address}: {e}")
 
@@ -430,7 +430,14 @@ async def log_verifier_result(email: str, domain: str, ip: str, target: str, por
         logger.info(f"[VERIFIER_RESULT] email={email} | domain={domain} | ip={ip} | target={target}:{port} | result={result} {details}")
 
 # ── Per-domain SMTP rate limiter ──────────────────────────────────────────────
-SMTP_RATE_LIMIT_PER_IP = int(os.getenv("SMTP_RATE_LIMIT_PER_MIN", "15"))
+SMTP_RATE_LIMIT_PER_IP = int(os.getenv("SMTP_RATE_LIMIT_PER_MIN", "5"))
+
+async def _is_ip_cooldown_for_domain(domain: str, ip: str) -> bool:
+    try:
+        r = get_redis()
+        return await r.exists(f"cooldown:{domain.lower()}:{ip}") > 0
+    except Exception:
+        return False
 
 async def _check_smtp_rate_limit(domain: str, ip: str) -> bool:
     """
@@ -592,6 +599,9 @@ async def smtp_verify(email: str, mx_hosts: List[str]) -> Tuple[str, str, Option
             
             for attempt, source_ip in enumerate(available_ips[:3]):
                 if not await _check_smtp_rate_limit(domain, source_ip or "default"):
+                    continue
+                if source_ip and await _is_ip_cooldown_for_domain(domain, source_ip):
+                    logger.debug(f"IP {source_ip} is in cooldown for {domain}. Skipping.")
                     continue
                 timeout_val = 5 if attempt == 0 else 8
                 

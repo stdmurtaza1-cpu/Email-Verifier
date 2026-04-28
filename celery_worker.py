@@ -153,7 +153,7 @@ def process_bulk_job(
 @celery_app.task(
     bind=True,
     name="process_bulk_chunk",
-    max_retries=3,
+    max_retries=15,
     time_limit=1800,
 )
 def process_bulk_chunk(
@@ -178,37 +178,75 @@ def process_bulk_chunk(
         logger.info(f"[{job_id}] Chunk {chunk_index} cancelled.")
         return
 
+    results_container = []
+    
     async def _run_chunk():
         sem = asyncio.Semaphore(BULK_CONCURRENCY)
         async def bounded(email: str):
             async with sem:
                 return await verify_email(email)
 
-        results = await asyncio.gather(*[bounded(e) for e in chunk_emails], return_exceptions=True)
-        
-        db_rows = []
-        for r in results:
-            if not isinstance(r, Exception):
-                db_rows.append(_build_email_result_obj(r, user_id, file_id))
-            else:
-                logger.error(f"Error in chunk: {r}")
-                
-        _flush_to_db(db_rows)
+        res = await asyncio.gather(*[bounded(e) for e in chunk_emails], return_exceptions=True)
+        results_container.extend(res)
         
     asyncio.run(_run_chunk())
 
-    # Update Redis progress
+    db_rows = []
+    failed_rows = []
+    requeue_emails = []
+    
+    for email_str, r in zip(chunk_emails, results_container):
+        if not isinstance(r, Exception):
+            status = r.get("status", "UNKNOWN")
+            if status in ["GREYLISTED", "TIMEOUT", "CONNECTION_REFUSED", "UNVERIFIABLE"]:
+                requeue_emails.append(email_str)
+                failed_rows.append(_build_email_result_obj(r, user_id, file_id))
+            else:
+                db_rows.append(_build_email_result_obj(r, user_id, file_id))
+        else:
+            logger.error(f"Error in chunk for {email_str}: {r}")
+            requeue_emails.append(email_str)
+            r_mock = {"email": email_str, "status": "UNKNOWN", "details": str(r)}
+            failed_rows.append(_build_email_result_obj(r_mock, user_id, file_id))
+
+    _flush_to_db(db_rows)
+
     try:
         import redis as _redis
         r = _redis.from_url(redis_url, decode_responses=True)
-        r.hincrby(f"job:{job_id}", "processed", len(chunk_emails))
+        if db_rows:
+            r.hincrby(f"job:{job_id}", "processed", len(db_rows))
+    except Exception as e:
+        logger.error(f"[{job_id}] Redis update failed in chunk: {e}")
+
+    if requeue_emails:
+        if self.request.retries < self.max_retries:
+            logger.info(f"[{job_id}] Retrying {len(requeue_emails)} emails in chunk {chunk_index} (Attempt {self.request.retries + 1}/{self.max_retries})")
+            retry_delay = 300 * (self.request.retries + 1)
+            raise self.retry(
+                args=[job_id, requeue_emails, user_id, file_id, chunk_index, total_emails],
+                countdown=retry_delay
+            )
+        else:
+            logger.warning(f"[{job_id}] Max retries reached for chunk {chunk_index}. Saving {len(failed_rows)} temporary failures as final.")
+            _flush_to_db(failed_rows)
+            try:
+                import redis as _redis
+                r = _redis.from_url(redis_url, decode_responses=True)
+                r.hincrby(f"job:{job_id}", "processed", len(failed_rows))
+            except Exception as e:
+                pass
+
+    try:
+        import redis as _redis
+        r = _redis.from_url(redis_url, decode_responses=True)
         chunks_done = r.hincrby(f"job:{job_id}", "chunks_completed", 1)
         chunks_total = int(r.hget(f"job:{job_id}", "chunks_total") or 0)
         
         if chunks_done >= chunks_total and chunks_total > 0:
             finalize_bulk_job.apply_async(args=[job_id, file_id, total_emails], queue="coordinator_queue")
     except Exception as e:
-        logger.error(f"[{job_id}] Redis update failed in chunk: {e}")
+        logger.error(f"[{job_id}] Redis chunks update failed: {e}")
 
 @celery_app.task(name="finalize_bulk_job")
 def finalize_bulk_job(job_id: str, file_id: Optional[int], total_emails: int):
