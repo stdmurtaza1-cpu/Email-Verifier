@@ -444,14 +444,26 @@ async def _check_smtp_rate_limit(domain: str, ip: str) -> bool:
     Returns True (allowed) or False (rate-limited).
     Uses Redis incr+expire counter keyed per domain per IP per minute window.
     """
-    key = f"smtp_rate:{domain}:{ip}"
+    domain_lower = domain.lower()
+    
+    # Domain-specific limits based on competitor analysis
+    if any(d in domain_lower for d in ['icloud.com', 'mac.com', 'me.com', 'hotmail', 'outlook', 'msn.com', 'live.com']):
+        limit = 1
+    elif 'yahoo' in domain_lower or 'ymail' in domain_lower or 'aol' in domain_lower:
+        limit = 4
+    elif 'gmail' in domain_lower or 'google' in domain_lower:
+        limit = 12
+    else:
+        limit = SMTP_RATE_LIMIT_PER_IP
+        
+    key = f"smtp_rate:{domain_lower}:{ip}"
     try:
         r = get_redis()
         count = await r.incr(key)
         if count == 1:
             await r.expire(key, 60)
-        if count > SMTP_RATE_LIMIT_PER_IP:
-            logger.debug(f"SMTP rate limit reached for {domain} on IP {ip} ({count}/{SMTP_RATE_LIMIT_PER_IP} per min)")
+        if count > limit:
+            logger.debug(f"SMTP rate limit reached for {domain} on IP {ip} ({count}/{limit} per min)")
             return False
         return True
     except Exception as exc:

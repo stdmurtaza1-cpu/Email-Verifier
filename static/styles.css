@@ -655,3 +655,10 @@ body.light-theme .sidebar-link.active { color: var(--primary) !important; backgr
     color: #1e293b !important;
     border: 1px solid #cbd5e1 !important;
 }
+
+/* Light theme specific badges contrast fix */
+body.light-theme .badge-greylisted { color: #64748b; border-color: rgba(100, 116, 139, 0.3); }
+body.light-theme .badge-error { color: #d97706; border-color: rgba(217, 119, 6, 0.3); }
+body.light-theme .badge-active { background: rgba(2, 132, 199, 0.1); color: #0284c7; border: 1px solid #7dd3fc; }
+body.light-theme .badge-pro { background: rgba(21, 128, 61, 0.1); color: #15803d; border: 1px solid #86efac; }
+body.light-theme .badge-catchall { color: #15803d; border-color: rgba(21, 128, 61, 0.3); }

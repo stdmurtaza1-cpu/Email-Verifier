@@ -6,9 +6,9 @@
     --danger: #e01b47;
     --success: #00b341;
     --warning: #d97706;
-    --text-main: #111111;
-    --text-muted: #555555;
-    --border-color: rgba(0, 179, 65, 0.2);
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --border-color: rgba(0, 179, 65, 0.3);
 }
 
 * {
@@ -121,14 +121,14 @@ body.light-theme .nav-btn:hover {
 }
 
 .nav-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: white;
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-main);
 }
 
 .nav-btn.active {
-    background: rgba(123, 47, 190, 0.2);
-    color: var(--primary);
-    border-left: 4px solid var(--primary);
+    background: rgba(123, 47, 190, 0.1);
+    color: #6b21a8;
+    border-left: 4px solid #6b21a8;
 }
 
 /* Tables */
@@ -174,10 +174,10 @@ th {
     font-size: 0.8rem;
     font-weight: 800;
 }
-.free { background: rgba(160, 160, 176, 0.2); color: #a0a0b0; border: 1px solid #a0a0b0; }
-.starter { background: rgba(0, 212, 255, 0.2); color: #00d4ff; border: 1px solid #00d4ff; }
-.pro { background: rgba(123, 47, 190, 0.2); color: #7b2fbe; border: 1px solid #7b2fbe; }
-.enterprise { background: rgba(255, 51, 102, 0.2); color: #ff3366; border: 1px solid #ff3366; }
+.free { background: rgba(107, 114, 128, 0.1); color: #4b5563; border: 1px solid #9ca3af; }
+.starter { background: rgba(2, 132, 199, 0.1); color: #0284c7; border: 1px solid #7dd3fc; }
+.pro { background: rgba(123, 47, 190, 0.1); color: #6b21a8; border: 1px solid #d8b4fe; }
+.enterprise { background: rgba(225, 29, 72, 0.1); color: #be123c; border: 1px solid #fda4af; }
 
 /* Loader */
 .loader {
