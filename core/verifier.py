@@ -261,7 +261,8 @@ async def _attempt_smtp_connection(target: str, port: int, mode: str, timeout_va
                 port=port,
                 timeout=timeout_val,
                 use_tls=use_tls,
-                tls_context=tls_context
+                tls_context=tls_context,
+                local_hostname=EHLO_HOST
             )
             await smtp.connect(sock=sock)
             return smtp
@@ -277,20 +278,21 @@ async def _attempt_smtp_connection(target: str, port: int, mode: str, timeout_va
             timeout=timeout_val,
             use_tls=use_tls,
             tls_context=tls_context,
-            source_address=src_addr
+            source_address=src_addr,
+            local_hostname=EHLO_HOST
         )
         await smtp.connect()
         return smtp
 
 async def _smtp_handshake(smtp, mode: str):
-    await smtp.ehlo(EHLO_HOST)
+    await smtp.ehlo()
     if mode == 'starttls':
         try:
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
             await smtp.starttls(tls_context=ctx)
-            await smtp.ehlo(EHLO_HOST)
+            await smtp.ehlo()
         except Exception as e:
             logger.debug(f"STARTTLS failed: {str(e)}")
 
